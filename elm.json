@@ -1,0 +1,20 @@
+{
+    "type": "package",
+    "name": "lamdera/auth",
+    "summary": "An Elm authentication and authorisation library for use with Lamdera",
+    "license": "MIT",
+    "version": "1.0.0",
+    "exposed-modules": [
+        "Auth.Flow",
+        "Auth.Common",
+        "Auth.Protocol.OAuth",
+        "Auth.Method.OAuthGoogle",
+        "Auth.Method.OAuthGithub",
+        "Auth.Method.EmailMagicLink"
+    ],
+    "elm-version": "0.19.0 <= v < 0.20.0",
+    "dependencies": {
+        "elm/core": "1.0.0 <= v < 2.0.0"
+    },
+    "test-dependencies": {}
+}
