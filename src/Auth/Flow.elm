@@ -1,6 +1,5 @@
 module Auth.Flow exposing (..)
 
-import Auth
 import Auth.Common
 import Auth.Method.EmailMagicLink
 import Auth.Method.OAuthGithub
@@ -50,20 +49,21 @@ init model methodId origin navigationKey toBackendFn config =
                     method.onFrontendCallbackInit model methodId origin navigationKey toBackendFn
 
 
-updateFromFrontend clientId sessionId authToBackend model =
+updateFromFrontend { logout, asBackendMsg } clientId sessionId authToBackend model =
     case authToBackend of
         Auth.Common.AuthSigninInitiated params ->
             ( model
             , withCurrentTime
                 (\now ->
-                    Auth.Common.AuthSigninInitiated_
-                        { sessionId = sessionId
-                        , clientId = clientId
-                        , methodId = params.methodId
-                        , baseUrl = params.baseUrl
-                        , now = now
-                        , username = params.username
-                        }
+                    asBackendMsg <|
+                        Auth.Common.AuthSigninInitiated_
+                            { sessionId = sessionId
+                            , clientId = clientId
+                            , methodId = params.methodId
+                            , baseUrl = params.baseUrl
+                            , now = now
+                            , username = params.username
+                            }
                 )
             )
 
@@ -71,15 +71,31 @@ updateFromFrontend clientId sessionId authToBackend model =
             ( model
             , Time.now
                 |> Task.perform
-                    (Auth.Common.AuthCallbackReceived_
-                        sessionId
-                        clientId
-                        methodId
-                        receivedUrl
-                        code
-                        state
+                    (\now ->
+                        asBackendMsg <|
+                            Auth.Common.AuthCallbackReceived_
+                                sessionId
+                                clientId
+                                methodId
+                                receivedUrl
+                                code
+                                state
+                                now
                     )
             )
+
+        Auth.Common.AuthRenewSessionRequested ->
+            ( model
+            , Time.now
+                |> Task.perform
+                    (\t ->
+                        asBackendMsg <|
+                            Auth.Common.AuthRenewSession sessionId clientId
+                    )
+            )
+
+        Auth.Common.AuthLogoutRequested ->
+            logout sessionId clientId model
 
 
 type alias BackendUpdateConfig frontendMsg backendMsg toFrontend frontendModel backendModel =
@@ -96,6 +112,8 @@ type alias BackendUpdateConfig frontendMsg backendMsg toFrontend frontendModel b
         -> Time.Posix
         -> ( { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }, Cmd backendMsg )
     , isDev : Bool
+    , renewSession : Auth.Common.SessionId -> Auth.Common.ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
+    , logout : Auth.Common.SessionId -> Auth.Common.ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
     }
 
 
@@ -103,7 +121,7 @@ backendUpdate :
     BackendUpdateConfig frontendMsg backendMsg toFrontend frontendModel { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }
     -> Auth.Common.BackendMsg
     -> ( { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }, Cmd backendMsg )
-backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMethod, handleAuthSuccess, isDev } authBackendMsg =
+backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMethod, handleAuthSuccess, isDev, renewSession } authBackendMsg =
     let
         errorToFrontend dest str =
             sendToFrontend dest (asToFrontend (Auth.Common.AuthError (Auth.Common.ErrAuthString str)))
@@ -169,6 +187,9 @@ backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMe
                         Err err ->
                             ( backendModel, sendToFrontend sessionId (asToFrontend <| Auth.Common.AuthError err) )
                 )
+
+        Auth.Common.AuthRenewSession sessionId clientId ->
+            renewSession sessionId clientId backendModel
 
 
 signInRequested :

@@ -22,6 +22,8 @@ type alias Config frontendMsg toBackend backendMsg toFrontend frontendModel back
     , sendToFrontend : SessionId -> toFrontend -> Cmd backendMsg
     , sendToBackend : toBackend -> Cmd frontendMsg
     , methods : List (Configuration frontendMsg backendMsg frontendModel backendModel)
+    , renewSession : SessionId -> ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
+    , logout : SessionId -> ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
     }
 
 
@@ -86,6 +88,8 @@ type FrontendMsg
 type ToBackend
     = AuthSigninInitiated { methodId : MethodId, baseUrl : Url, username : Maybe String }
     | AuthCallbackReceived MethodId Url AuthCode State
+    | AuthRenewSessionRequested
+    | AuthLogoutRequested
 
 
 type BackendMsg
@@ -93,11 +97,20 @@ type BackendMsg
     | AuthSigninInitiatedDelayed_ SessionId ToFrontend
     | AuthCallbackReceived_ SessionId ClientId MethodId Url String String Time.Posix
     | AuthSuccess SessionId ClientId MethodId Time.Posix (Result Error ( UserInfo, Maybe Token ))
+    | AuthRenewSession SessionId ClientId
 
 
 type ToFrontend
     = AuthInitiateSignin Url
     | AuthError Error
+    | AuthSessionChallenge AuthChallengeReason
+
+
+type AuthChallengeReason
+    = AuthSessionMissing
+    | AuthSessionInvalid
+    | AuthSessionExpired
+    | AuthSessionLoggedOut
 
 
 type alias Token =
