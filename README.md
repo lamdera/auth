@@ -24,6 +24,30 @@ Progress:
 - [ ] Stretch goal: elm-review rule to set everything up!
 
 
+### Install
+
+Until this is available as a package:
+
+- Clone this repo into your project as a git submodule (or vendor it manually by copy pasting src)
+- Reference `src` in your project's `elm.json:source-directories`
+- Install the relevant deps:
+```
+yes | elm install elm/browser
+yes | elm install elm/bytes
+yes | elm install elm/http
+yes | elm install elm/json
+yes | elm install elm/regex
+yes | elm install elm/time
+yes | elm install elm/url
+yes | elm install elm-community/dict-extra
+yes | elm install elm-community/list-extra
+yes | elm install chelovek0v/bbase64
+yes | elm install ktonon/elm-crypto
+yes | elm install ktonon/elm-word
+yes | elm install NoRedInk/elm-json-decode-pipeline
+yes | elm install TSFoster/elm-sha1
+```
+
 
 ### Setup
 
