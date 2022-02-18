@@ -86,6 +86,7 @@ getUserInfoTask authenticationSuccess =
                 (Json.succeed UserInfo
                     |> required "name" Json.string
                     |> optional "email" Json.string ""
+                    |> optional "login" (Json.maybe Json.string) Nothing
                 )
         , timeout = Nothing
         }

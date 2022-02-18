@@ -24,7 +24,7 @@ configuration :
         SessionId
         -> ClientId
         -> backendModel
-        -> { username : String }
+        -> { username : Maybe String }
         -> Time.Posix
         -> ( backendModel, Cmd backendMsg )
     , onAuthCallbackReceived :
@@ -48,21 +48,27 @@ configuration { initiateSignin, onAuthCallbackReceived } =
     ProtocolEmailMagicLink
         { id = "EmailMagicLink"
         , initiateSignin = initiateSignin
-        , onFrontendCallbackInit =
-            \frontendModel methodId origin key toBackend ->
-                case origin |> Url.Parser.parse (callbackUrl methodId <?> queryParams) of
-                    Just ( Just token, Just email ) ->
-                        ( { frontendModel | authFlow = Auth.Common.Pending }
-                        , toBackend <| Auth.Common.AuthCallbackReceived methodId origin token email
-                        )
-
-                    _ ->
-                        ( { frontendModel | authFlow = Errored <| ErrAuthString "Missing token and/or email parameters. Please try again." }
-                        , Cmd.none
-                        )
+        , onFrontendCallbackInit = onFrontendCallbackInit
         , onAuthCallbackReceived = onAuthCallbackReceived
         , placeholder = \frontendMsg backendMsg frontendModel backendModel -> ()
         }
+
+
+onFrontendCallbackInit frontendModel methodId origin key toBackend =
+    case origin |> Url.Parser.parse (callbackUrl methodId <?> queryParams) of
+        Just ( Just token, Just email ) ->
+            ( { frontendModel | authFlow = Auth.Common.Pending }
+            , toBackend <| Auth.Common.AuthCallbackReceived methodId origin token email
+            )
+
+        _ ->
+            ( { frontendModel | authFlow = Errored <| ErrAuthString "Missing token and/or email parameters. Please try again." }
+            , Cmd.none
+            )
+
+
+trigger msg =
+    Time.now |> Task.perform (always msg)
 
 
 callbackUrl methodId =

@@ -95,6 +95,7 @@ getUserInfo authenticationSuccess =
                 Task.succeed
                     { name = result.given_name ++ " " ++ result.family_name
                     , email = result.email
+                    , username = Nothing
                     }
 
             Err err ->

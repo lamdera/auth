@@ -27,11 +27,19 @@ init :
     -> Url
     -> Navigation.Key
     -> (Auth.Common.ToBackend -> Cmd frontendMsg)
-    -> Auth.Common.Config frontendMsg toBackend backendMsg toFrontend { frontendModel | authFlow : Auth.Common.Flow, authRedirectBaseUrl : Url } backendModel
     -> ( { frontendModel | authFlow : Auth.Common.Flow, authRedirectBaseUrl : Url }, Cmd frontendMsg )
-init model methodId origin navigationKey toBackendFn config =
-    case findMethod methodId config of
-        Nothing ->
+init model methodId origin navigationKey toBackendFn =
+    case methodId of
+        "EmailMagicLink" ->
+            Auth.Method.EmailMagicLink.onFrontendCallbackInit model methodId origin navigationKey toBackendFn
+
+        "OAuthGithub" ->
+            Auth.Protocol.OAuth.onFrontendCallbackInit model methodId origin navigationKey toBackendFn
+
+        "OAuthGoogle" ->
+            Auth.Protocol.OAuth.onFrontendCallbackInit model methodId origin navigationKey toBackendFn
+
+        _ ->
             let
                 clearUrl =
                     Navigation.replaceUrl navigationKey (Url.toString model.authRedirectBaseUrl)
@@ -39,14 +47,6 @@ init model methodId origin navigationKey toBackendFn config =
             ( { model | authFlow = Auth.Common.Errored <| Auth.Common.ErrAuthString ("Unsupported auth method: " ++ methodId) }
             , clearUrl
             )
-
-        Just config_ ->
-            case config_ of
-                Auth.Common.ProtocolEmailMagicLink method ->
-                    method.onFrontendCallbackInit model methodId origin navigationKey toBackendFn
-
-                Auth.Common.ProtocolOAuth method ->
-                    method.onFrontendCallbackInit model methodId origin navigationKey toBackendFn
 
 
 updateFromFrontend { logout, asBackendMsg } clientId sessionId authToBackend model =
@@ -118,19 +118,24 @@ type alias BackendUpdateConfig frontendMsg backendMsg toFrontend frontendModel b
 
 
 backendUpdate :
-    BackendUpdateConfig frontendMsg backendMsg toFrontend frontendModel { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }
+    BackendUpdateConfig
+        frontendMsg
+        backendMsg
+        toFrontend
+        frontendModel
+        { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }
     -> Auth.Common.BackendMsg
     -> ( { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }, Cmd backendMsg )
 backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMethod, handleAuthSuccess, isDev, renewSession } authBackendMsg =
     let
-        errorToFrontend dest str =
-            sendToFrontend dest (asToFrontend (Auth.Common.AuthError (Auth.Common.ErrAuthString str)))
+        authError str =
+            asToFrontend (Auth.Common.AuthError (Auth.Common.ErrAuthString str))
 
         withMethod methodId clientId fn =
             case loadMethod methodId of
                 Nothing ->
                     ( backendModel
-                    , errorToFrontend clientId ("Unsupported auth method: " ++ methodId)
+                    , sendToFrontend clientId <| authError ("Unsupported auth method: " ++ methodId)
                     )
 
                 Just method ->
@@ -143,14 +148,7 @@ backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMe
                 (\method ->
                     case method of
                         Auth.Common.ProtocolEmailMagicLink config ->
-                            case username of
-                                Just username_ ->
-                                    config.initiateSignin sessionId clientId backendModel { username = username_ } now
-
-                                Nothing ->
-                                    ( backendModel
-                                    , errorToFrontend clientId "An email has been sent if this account exists."
-                                    )
+                            config.initiateSignin sessionId clientId backendModel { username = username } now
 
                         Auth.Common.ProtocolOAuth config ->
                             Auth.Protocol.OAuth.initiateSignin sessionId baseUrl config isDev asBackendMsg now backendModel
@@ -218,7 +216,15 @@ setError :
     -> Auth.Common.Error
     -> ( { frontendModel | authFlow : Auth.Common.Flow }, Cmd msg )
 setError model err =
-    ( { model | authFlow = Auth.Common.Errored err }, Cmd.none )
+    setAuthFlow model <| Auth.Common.Errored err
+
+
+setAuthFlow :
+    { frontendModel | authFlow : Auth.Common.Flow }
+    -> Auth.Common.Flow
+    -> ( { frontendModel | authFlow : Auth.Common.Flow }, Cmd msg )
+setAuthFlow model flow =
+    ( { model | authFlow = flow }, Cmd.none )
 
 
 signOutRequested :

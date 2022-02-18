@@ -34,7 +34,13 @@ type Configuration frontendMsg backendMsg frontendModel backendModel
 
 type alias ConfigurationEmailMagicLink frontendMsg backendMsg frontendModel backendModel =
     { id : String
-    , initiateSignin : SessionId -> ClientId -> backendModel -> { username : String } -> Time.Posix -> ( backendModel, Cmd backendMsg )
+    , initiateSignin :
+        SessionId
+        -> ClientId
+        -> backendModel
+        -> { username : Maybe String }
+        -> Time.Posix
+        -> ( backendModel, Cmd backendMsg )
     , onFrontendCallbackInit :
         frontendModel
         -> MethodId
@@ -162,6 +168,7 @@ type alias AuthCode =
 type alias UserInfo =
     { name : String
     , email : String
+    , username : Maybe String
     }
 
 
