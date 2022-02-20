@@ -2,8 +2,25 @@
 
 This library is experimental and a work in progress!
 
+### Example implementation
 
-### Vendored packages
+You can see a draft implementation of [lamdera/auth replacing a fake user/pass auth with a real Github Auth on the Lamdera Realword repo](https://github.com/supermario/lamdera-realworld/compare/lamdera-explore-auth-draft).
+
+
+### Progress
+
+Progress:
+
+- [x] OAuth flow
+- [x] Email magic link flow
+- [x] URL route handling
+- [x] Logout handling
+- [ ] Improve the API surface area
+- [ ] Actually make this an installable package with nice docs
+- [ ] Stretch goal: elm-review rule to set everything up!
+
+
+### Vendored packages
 
 This package vendors two other Elm packages in order to make modifications:
 
@@ -12,16 +29,6 @@ This package vendors two other Elm packages in order to make modifications:
 
 Ideally these will be de-vendored into a regular Elm dependencies in future.
 
-### Progress
-
-Progress:
-
-- [x] OAuth flow
-- [x] Email magic link flow
-- [ ] URL route handling
-- [ ] Logout handling
-- [ ] Actually make this an installable package
-- [ ] Stretch goal: elm-review rule to set everything up!
 
 
 ### Install
@@ -47,7 +54,6 @@ yes | elm install ktonon/elm-word
 yes | elm install NoRedInk/elm-json-decode-pipeline
 yes | elm install TSFoster/elm-sha1
 ```
-
 
 ### Setup
 
