@@ -14,7 +14,7 @@ Create a new OAuth app and set the callback URL according to your `appname`:
 https://appname.lamdera.app/login/OAuthGithub/callback
 ```
 
-Save the `clientId` and `clientSecret` values.
+Note the `clientId` and `clientSecret` values.
 
 ### 2. Create a development Github OAuth app
 
@@ -25,7 +25,7 @@ Set the callback URL to:
 http://localhost:8000/login/OAuthGithub/callback
 ```
 
-Save the `clientId` and `clientSecret` values.
+Note the `clientId` and `clientSecret` values.
 
 
 ### 3. Add secrets config to your app code
