@@ -57,7 +57,7 @@ yes | elm install TSFoster/elm-sha1
 
 ### Setup
 
-:warning: This is the conceptual target API, not actual instructions for this code yet!
+:warning: This is the conceptual target API, not actual instructions for this code yet! (Instead, follow the types!)
 
 
 1. Create `src/Auth.elm`:
