@@ -55,6 +55,9 @@ yes | elm install NoRedInk/elm-json-decode-pipeline
 yes | elm install TSFoster/elm-sha1
 ```
 
+You might also have luck with [elm-git-install](https://github.com/robinheghan/elm-git-install), though its not been tried yet.
+
+
 ### Setup
 
 :warning: This is the conceptual target API, not actual instructions for this code yet! (Instead, follow the types!)
