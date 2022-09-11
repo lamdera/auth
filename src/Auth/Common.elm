@@ -19,8 +19,6 @@ type alias Config frontendMsg toBackend backendMsg toFrontend frontendModel back
     , sendToBackend : toBackend -> Cmd frontendMsg
     , methods : List (Configuration frontendMsg backendMsg frontendModel backendModel)
     , renewSession : SessionId -> ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
-
-    --, logout : SessionId -> ClientId -> backendModel -> MethodId -> ( backendModel, Cmd backendMsg )
     }
 
 
@@ -103,6 +101,7 @@ type BackendMsg
     | AuthSuccess SessionId ClientId MethodId Time.Posix (Result Error ( UserInfo, Maybe Token ))
     | AuthRenewSession SessionId ClientId
     | AuthLogout SessionId ClientId
+    | AuthDelayedLogout ClientId
 
 
 type ToFrontend

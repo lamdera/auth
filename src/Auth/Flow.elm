@@ -125,7 +125,8 @@ type alias BackendUpdateConfig frontendMsg backendMsg toFrontend frontendModel b
         -> ( { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }, Cmd backendMsg )
     , isDev : Bool
     , renewSession : Auth.Common.SessionId -> Auth.Common.ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
-    , logout : Auth.Common.SessionId -> Auth.Common.ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
+    , logout : Auth.Common.SessionId -> Auth.Common.ClientId -> Bool -> backendModel -> ( backendModel, Cmd backendMsg )
+    , logoutDelayed : Auth.Common.ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
     }
 
 
@@ -138,7 +139,7 @@ backendUpdate :
         { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }
     -> Auth.Common.BackendMsg
     -> ( { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }, Cmd backendMsg )
-backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMethod, handleAuthSuccess, isDev, renewSession, logout } authBackendMsg =
+backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMethod, handleAuthSuccess, isDev, renewSession, logout, logoutDelayed } authBackendMsg =
     let
         authError str =
             asToFrontend (Auth.Common.AuthError (Auth.Common.ErrAuthString str))
@@ -202,7 +203,10 @@ backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMe
             renewSession sessionId clientId backendModel
 
         Auth.Common.AuthLogout sessionId clientId ->
-            logout sessionId clientId backendModel
+            logout sessionId clientId isDev backendModel
+
+        Auth.Common.AuthDelayedLogout clientId ->
+            logoutDelayed clientId backendModel
 
 
 signInRequested :
