@@ -1,4 +1,4 @@
-module Auth.Method.OAuthGoogle exposing (..)
+module Auth.Method.OAuthAuth0 exposing (..)
 
 import Auth.Common exposing (..)
 import Auth.Protocol.OAuth
@@ -6,6 +6,7 @@ import Base64.Encode as Base64
 import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
 import Dict exposing (Dict)
+import Env exposing (..)
 import Http
 import HttpHelpers
 import JWT exposing (..)
@@ -15,7 +16,7 @@ import OAuth
 import OAuth.AuthorizationCode as OAuth
 import Task exposing (Task)
 import Url exposing (Protocol(..), Url)
-import Url.Builder
+import Url.Builder exposing (absolute)
 
 
 configuration :
@@ -29,10 +30,10 @@ configuration :
             backendModel
 configuration clientId clientSecret =
     ProtocolOAuth
-        { id = "OAuthGoogle"
-        , authorizationEndpoint = { defaultHttpsUrl | host = "accounts.google.com", path = "/o/oauth2/v2/auth" }
-        , tokenEndpoint = { defaultHttpsUrl | host = "oauth2.googleapis.com", path = "/token" }
-        , logoutEndpoint = Nothing
+        { id = "OAuthAuth0"
+        , authorizationEndpoint = { defaultHttpsUrl | host = Env.auth0AppTenant, path = "/authorize" }
+        , tokenEndpoint = { defaultHttpsUrl | host = Env.auth0AppTenant, path = "/oauth/token" }
+        , logoutEndpoint = Just { defaultHttpsUrl | host = Env.auth0AppTenant, path = "/v2/logout", query = Just ("client_id=" ++ clientId ++ "&returnTo=") }
         , clientId = clientId
         , clientSecret = clientSecret
         , scope = [ "openid email profile" ]
@@ -52,8 +53,22 @@ getUserInfo authenticationSuccess =
         extract : String -> Json.Decoder a -> Dict String Json.Value -> Result String a
         extract k d v =
             Dict.get k v
-                |> Maybe.map (\v_ -> Json.decodeValue d v_ |> Result.mapError Json.errorToString)
+                |> Maybe.map
+                    (\v_ ->
+                        Json.decodeValue d v_
+                            |> Result.mapError Json.errorToString
+                    )
                 |> Maybe.withDefault (Err <| "Key " ++ k ++ " not found")
+
+        extractOptional : a -> String -> Json.Decoder a -> Dict String Json.Value -> Result String a
+        extractOptional default k d v =
+            Dict.get k v
+                |> Maybe.map
+                    (\v_ ->
+                        Json.decodeValue d v_
+                            |> Result.mapError Json.errorToString
+                    )
+                |> Maybe.withDefault (Ok <| default)
 
         tokenR =
             case authenticationSuccess.idJwt of
@@ -85,16 +100,16 @@ getUserInfo authenticationSuccess =
                                 }
                             )
                             (extract "email" Json.string meta)
-                            (extract "email_verified" Json.bool meta)
-                            (extract "given_name" Json.string meta)
-                            (extract "family_name" Json.string meta)
+                            (extractOptional Nothing "email_verified" (Json.bool |> Json.nullable) meta)
+                            (extractOptional Nothing "given_name" (Json.string |> Json.nullable) meta)
+                            (extractOptional Nothing "family_name" (Json.string |> Json.nullable) meta)
                     )
     in
     Task.mapError (Auth.Common.ErrAuthString << HttpHelpers.httpErrorToString) <|
         case stuff of
             Ok result ->
                 Task.succeed
-                    { name = result.given_name ++ " " ++ result.family_name
+                    { name = Maybe.withDefault "" result.given_name ++ " " ++ Maybe.withDefault "" result.family_name
                     , email = result.email
                     , username = Nothing
                     }

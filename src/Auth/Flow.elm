@@ -1,21 +1,13 @@
 module Auth.Flow exposing (..)
 
-import Auth.Common
+import Auth.Common exposing (ClientId, SessionId, ToBackend, ToFrontend(..))
 import Auth.Method.EmailMagicLink
 import Auth.Method.OAuthGithub
 import Auth.Method.OAuthGoogle
 import Auth.Protocol.OAuth
 import Browser.Navigation as Navigation
 import Dict exposing (Dict)
-import Dict.Extra as Dict
-import Http
-import HttpHelpers
-import Json.Decode as Json
 import List.Extra as List
-import OAuth
-import OAuth.AuthorizationCode as OAuth
-import Process
-import SHA1
 import Task
 import Time
 import Url exposing (Protocol(..), Url)
@@ -39,6 +31,9 @@ init model methodId origin navigationKey toBackendFn =
         "OAuthGoogle" ->
             Auth.Protocol.OAuth.onFrontendCallbackInit model methodId origin navigationKey toBackendFn
 
+        "OAuthAuth0" ->
+            Auth.Protocol.OAuth.onFrontendCallbackInit model methodId origin navigationKey toBackendFn
+
         _ ->
             let
                 clearUrl =
@@ -49,7 +44,8 @@ init model methodId origin navigationKey toBackendFn =
             )
 
 
-updateFromFrontend { logout, asBackendMsg } clientId sessionId authToBackend model =
+updateFromFrontend : BackendUpdateConfig () Auth.Common.BackendMsg () frontendModel () -> ClientId -> SessionId -> ToBackend -> frontendModel -> ( frontendModel, Cmd Auth.Common.BackendMsg )
+updateFromFrontend { asBackendMsg, asToFrontend } clientId sessionId authToBackend model =
     case authToBackend of
         Auth.Common.AuthSigninInitiated params ->
             ( model
@@ -95,7 +91,14 @@ updateFromFrontend { logout, asBackendMsg } clientId sessionId authToBackend mod
             )
 
         Auth.Common.AuthLogoutRequested ->
-            logout sessionId clientId model
+            ( model
+            , Time.now
+                |> Task.perform
+                    (\t ->
+                        asBackendMsg <|
+                            Auth.Common.AuthLogout sessionId clientId
+                    )
+            )
 
 
 type alias BackendUpdateConfig frontendMsg backendMsg toFrontend frontendModel backendModel =
@@ -108,6 +111,7 @@ type alias BackendUpdateConfig frontendMsg backendMsg toFrontend frontendModel b
         Auth.Common.SessionId
         -> Auth.Common.ClientId
         -> Auth.Common.UserInfo
+        -> Maybe Url
         -> Maybe Auth.Common.Token
         -> Time.Posix
         -> ( { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }, Cmd backendMsg )
@@ -126,7 +130,7 @@ backendUpdate :
         { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }
     -> Auth.Common.BackendMsg
     -> ( { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }, Cmd backendMsg )
-backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMethod, handleAuthSuccess, isDev, renewSession } authBackendMsg =
+backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMethod, handleAuthSuccess, isDev, renewSession, logout } authBackendMsg =
     let
         authError str =
             asToFrontend (Auth.Common.AuthError (Auth.Common.ErrAuthString str))
@@ -173,13 +177,21 @@ backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMe
             let
                 removeSession backendModel_ =
                     { backendModel_ | pendingAuths = backendModel_.pendingAuths |> Dict.remove sessionId }
+
+                authLogoutUrl method =
+                    case method of
+                        Auth.Common.ProtocolEmailMagicLink _ ->
+                            Nothing
+
+                        Auth.Common.ProtocolOAuth config ->
+                            config.logoutEndpoint
             in
             withMethod methodId
                 clientId
                 (\method ->
                     case res of
                         Ok ( userInfo, authToken ) ->
-                            handleAuthSuccess sessionId clientId userInfo authToken now
+                            handleAuthSuccess sessionId clientId userInfo (authLogoutUrl method) authToken now
                                 |> Tuple.mapFirst removeSession
 
                         Err err ->
@@ -188,6 +200,9 @@ backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMe
 
         Auth.Common.AuthRenewSession sessionId clientId ->
             renewSession sessionId clientId backendModel
+
+        Auth.Common.AuthLogout sessionId clientId ->
+            logout sessionId clientId backendModel
 
 
 signInRequested :
@@ -225,15 +240,6 @@ setAuthFlow :
     -> ( { frontendModel | authFlow : Auth.Common.Flow }, Cmd msg )
 setAuthFlow model flow =
     ( { model | authFlow = flow }, Cmd.none )
-
-
-signOutRequested :
-    { frontendModel | authFlow : Auth.Common.Flow, authRedirectBaseUrl : Url }
-    -> ( { frontendModel | authFlow : Auth.Common.Flow, authRedirectBaseUrl : Url }, Cmd msg )
-signOutRequested model =
-    ( { model | authFlow = Auth.Common.Idle }
-    , Navigation.load (Url.toString model.authRedirectBaseUrl)
-    )
 
 
 errorToString : Auth.Common.Error -> String

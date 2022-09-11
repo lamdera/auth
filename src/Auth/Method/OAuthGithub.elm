@@ -31,6 +31,7 @@ configuration clientId clientSecret =
         { id = "OAuthGithub"
         , authorizationEndpoint = { defaultHttpsUrl | host = "github.com", path = "/login/oauth/authorize" }
         , tokenEndpoint = { defaultHttpsUrl | host = "github.com", path = "/login/oauth/access_token" }
+        , logoutEndpoint = Nothing
         , clientId = clientId
         , clientSecret = clientSecret
         , scope = [ "read:user", "user:email" ]

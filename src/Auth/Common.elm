@@ -4,15 +4,11 @@ import Base64.Encode as Base64
 import Browser.Navigation exposing (Key)
 import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
-import Dict exposing (Dict)
-import Http
-import Json.Decode as Json
 import OAuth
 import OAuth.AuthorizationCode as OAuth
 import Task exposing (Task)
 import Time
 import Url exposing (Protocol(..), Url)
-import Url.Builder
 
 
 type alias Config frontendMsg toBackend backendMsg toFrontend frontendModel backendModel =
@@ -23,7 +19,8 @@ type alias Config frontendMsg toBackend backendMsg toFrontend frontendModel back
     , sendToBackend : toBackend -> Cmd frontendMsg
     , methods : List (Configuration frontendMsg backendMsg frontendModel backendModel)
     , renewSession : SessionId -> ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
-    , logout : SessionId -> ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
+
+    --, logout : SessionId -> ClientId -> backendModel -> MethodId -> ( backendModel, Cmd backendMsg )
     }
 
 
@@ -66,6 +63,7 @@ type alias ConfigurationOAuth frontendMsg backendMsg frontendModel backendModel 
     { id : String
     , authorizationEndpoint : Url
     , tokenEndpoint : Url
+    , logoutEndpoint : Maybe Url
     , clientId : String
 
     -- @TODO this will force a leak out as frontend uses this config?
@@ -104,12 +102,15 @@ type BackendMsg
     | AuthCallbackReceived_ SessionId ClientId MethodId Url String String Time.Posix
     | AuthSuccess SessionId ClientId MethodId Time.Posix (Result Error ( UserInfo, Maybe Token ))
     | AuthRenewSession SessionId ClientId
+    | AuthLogout SessionId ClientId
 
 
 type ToFrontend
     = AuthInitiateSignin Url
     | AuthError Error
     | AuthSessionChallenge AuthChallengeReason
+    | AuthSetLogoutUrl (Maybe Url)
+    | AuthSignOut
 
 
 type AuthChallengeReason
