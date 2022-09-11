@@ -1,13 +1,22 @@
 module Auth.Flow exposing (..)
 
-import Auth.Common exposing (ClientId, SessionId, ToBackend, ToFrontend(..))
+import Auth.Common
 import Auth.Method.EmailMagicLink
 import Auth.Method.OAuthGithub
 import Auth.Method.OAuthGoogle
 import Auth.Protocol.OAuth
+import Bridge exposing (ToBackend(..), sendToBackend)
 import Browser.Navigation as Navigation
 import Dict exposing (Dict)
+import Dict.Extra as Dict
+import Http
+import HttpHelpers
+import Json.Decode as Json
 import List.Extra as List
+import OAuth
+import OAuth.AuthorizationCode as OAuth
+import Process
+import SHA1
 import Task
 import Time
 import Url exposing (Protocol(..), Url)
@@ -44,8 +53,7 @@ init model methodId origin navigationKey toBackendFn =
             )
 
 
-updateFromFrontend : BackendUpdateConfig () Auth.Common.BackendMsg () frontendModel () -> ClientId -> SessionId -> ToBackend -> frontendModel -> ( frontendModel, Cmd Auth.Common.BackendMsg )
-updateFromFrontend { asBackendMsg, asToFrontend } clientId sessionId authToBackend model =
+updateFromFrontend { asBackendMsg } clientId sessionId authToBackend model =
     case authToBackend of
         Auth.Common.AuthSigninInitiated params ->
             ( model
@@ -240,6 +248,15 @@ setAuthFlow :
     -> ( { frontendModel | authFlow : Auth.Common.Flow }, Cmd msg )
 setAuthFlow model flow =
     ( { model | authFlow = flow }, Cmd.none )
+
+
+signOutRequested :
+    { frontendModel | authFlow : Auth.Common.Flow }
+    -> ( { frontendModel | authFlow : Auth.Common.Flow }, Cmd msg )
+signOutRequested model =
+    ( { model | authFlow = Auth.Common.Idle }
+    , AuthToBackend Auth.Common.AuthLogoutRequested |> sendToBackend
+    )
 
 
 errorToString : Auth.Common.Error -> String
