@@ -6,6 +6,7 @@ import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
 import OAuth
 import OAuth.AuthorizationCode as OAuth
+import Process
 import Task exposing (Task)
 import Time
 import Url exposing (Protocol(..), Url)
@@ -219,6 +220,17 @@ defaultHttpsUrl =
     , query = Nothing
     , fragment = Nothing
     }
+
+
+sleepIfDevForBackendPersistence isDev =
+    -- Because in dev the backendmodel is only persisted every 2 seconds, we need to
+    -- make sure we sleep a little before a redirect otherwise we won't have our
+    -- persisted state.
+    if isDev then
+        Process.sleep 3000
+
+    else
+        Process.sleep 0
 
 
 
