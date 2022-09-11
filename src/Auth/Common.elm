@@ -222,15 +222,17 @@ defaultHttpsUrl =
     }
 
 
-sleepIfDevForBackendPersistence isDev =
+sleepTask isDev msg =
     -- Because in dev the backendmodel is only persisted every 2 seconds, we need to
     -- make sure we sleep a little before a redirect otherwise we won't have our
     -- persisted state.
-    if isDev then
+    (if isDev then
         Process.sleep 3000
 
-    else
+     else
         Process.sleep 0
+    )
+        |> Task.perform (always msg)
 
 
 

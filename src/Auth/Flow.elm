@@ -301,3 +301,11 @@ findMethod :
     -> Maybe (Auth.Common.Configuration frontendMsg backendMsg frontendModel backendModel)
 findMethod methodId config =
     methodLoader config.methods methodId
+
+
+logoutRequest isDev logoutMsg =
+    Auth.Common.sleepTask isDev logoutMsg
+
+
+logoutRequestDelayed delayedLogoutMsg =
+    delayedLogoutMsg

@@ -92,15 +92,14 @@ initiateSignin sessionId baseUrl config isDev asBackendMsg now backendModel =
     ( { backendModel
         | pendingAuths = backendModel.pendingAuths |> Dict.insert sessionId newPendingAuth
       }
-    , Auth.Common.sleepIfDevForBackendPersistence isDev
-        |> Task.perform
-            (always
-                (AuthSigninInitiatedDelayed_
-                    sessionId
-                    (AuthInitiateSignin url)
-                )
+    , Auth.Common.sleepTask
+        isDev
+        (asBackendMsg
+            (AuthSigninInitiatedDelayed_
+                sessionId
+                (AuthInitiateSignin url)
             )
-        |> Cmd.map asBackendMsg
+        )
     )
 
 
