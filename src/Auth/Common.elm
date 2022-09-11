@@ -109,7 +109,7 @@ type ToFrontend
     = AuthInitiateSignin Url
     | AuthError Error
     | AuthSessionChallenge AuthChallengeReason
-    | AuthSetLogoutUrl (Maybe Url)
+    | AuthSetMethodId MethodId
     | AuthSignOut
 
 
@@ -132,6 +132,7 @@ type Provider
     = EmailMagicLink
     | OAuthGithub
     | OAuthGoogle
+    | OAuthAuth0
 
 
 type Flow

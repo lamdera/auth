@@ -1,6 +1,6 @@
 module Auth.Flow exposing (..)
 
-import Auth.Common
+import Auth.Common exposing (MethodId)
 import Auth.Method.EmailMagicLink
 import Auth.Method.OAuthGithub
 import Auth.Method.OAuthGoogle
@@ -119,7 +119,7 @@ type alias BackendUpdateConfig frontendMsg backendMsg toFrontend frontendModel b
         Auth.Common.SessionId
         -> Auth.Common.ClientId
         -> Auth.Common.UserInfo
-        -> Maybe Url
+        -> MethodId
         -> Maybe Auth.Common.Token
         -> Time.Posix
         -> ( { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }, Cmd backendMsg )
@@ -185,21 +185,13 @@ backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMe
             let
                 removeSession backendModel_ =
                     { backendModel_ | pendingAuths = backendModel_.pendingAuths |> Dict.remove sessionId }
-
-                authLogoutUrl method =
-                    case method of
-                        Auth.Common.ProtocolEmailMagicLink _ ->
-                            Nothing
-
-                        Auth.Common.ProtocolOAuth config ->
-                            config.logoutEndpoint
             in
             withMethod methodId
                 clientId
                 (\method ->
                     case res of
                         Ok ( userInfo, authToken ) ->
-                            handleAuthSuccess sessionId clientId userInfo (authLogoutUrl method) authToken now
+                            handleAuthSuccess sessionId clientId userInfo methodId authToken now
                                 |> Tuple.mapFirst removeSession
 
                         Err err ->
