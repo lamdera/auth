@@ -52,8 +52,22 @@ getUserInfo authenticationSuccess =
         extract : String -> Json.Decoder a -> Dict String Json.Value -> Result String a
         extract k d v =
             Dict.get k v
-                |> Maybe.map (\v_ -> Json.decodeValue d v_ |> Result.mapError Json.errorToString)
+                |> Maybe.map
+                    (\v_ ->
+                        Json.decodeValue d v_
+                            |> Result.mapError Json.errorToString
+                    )
                 |> Maybe.withDefault (Err <| "Key " ++ k ++ " not found")
+
+        extractOptional : a -> String -> Json.Decoder a -> Dict String Json.Value -> Result String a
+        extractOptional default k d v =
+            Dict.get k v
+                |> Maybe.map
+                    (\v_ ->
+                        Json.decodeValue d v_
+                            |> Result.mapError Json.errorToString
+                    )
+                |> Maybe.withDefault (Ok <| default)
 
         tokenR =
             case authenticationSuccess.idJwt of
@@ -87,14 +101,14 @@ getUserInfo authenticationSuccess =
                             (extract "email" Json.string meta)
                             (extract "email_verified" Json.bool meta)
                             (extract "given_name" Json.string meta)
-                            (extract "family_name" Json.string meta)
+                            (extractOptional Nothing "family_name" (Json.string |> Json.nullable) meta)
                     )
     in
     Task.mapError (Auth.Common.ErrAuthString << HttpHelpers.httpErrorToString) <|
         case stuff of
             Ok result ->
                 Task.succeed
-                    { name = result.given_name ++ " " ++ result.family_name
+                    { name = result.given_name ++ " " ++ Maybe.withDefault "" result.family_name
                     , email = result.email
                     , username = Nothing
                     }
