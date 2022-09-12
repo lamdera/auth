@@ -85,7 +85,7 @@ config =
     , methods =
         [ Auth.Method.EmailMagicLink.configuration
         , Auth.Method.OAuthGithub.configuration Config.githubAppClientId Config.githubAppClientSecret
-        , Auth.Method.OAuthGoogle.configuration Env.googleAppClientId Env.googleAppClientSecret
+        , Auth.Method.OAuthGoogle.configuration Config.googleAppClientId Config.googleAppClientSecret
         ]
     }
 ```

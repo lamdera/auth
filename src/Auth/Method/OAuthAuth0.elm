@@ -5,6 +5,7 @@ import Auth.Protocol.OAuth
 import Base64.Encode as Base64
 import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
+import Config
 import Dict exposing (Dict)
 import Env exposing (..)
 import Http
@@ -31,9 +32,9 @@ configuration :
 configuration clientId clientSecret =
     ProtocolOAuth
         { id = "OAuthAuth0"
-        , authorizationEndpoint = { defaultHttpsUrl | host = Env.auth0AppTenant, path = "/authorize" }
-        , tokenEndpoint = { defaultHttpsUrl | host = Env.auth0AppTenant, path = "/oauth/token" }
-        , logoutEndpoint = Just { defaultHttpsUrl | host = Env.auth0AppTenant, path = "/v2/logout", query = Just ("client_id=" ++ clientId ++ "&returnTo=") }
+        , authorizationEndpoint = { defaultHttpsUrl | host = Config.auth0AppTenant, path = "/authorize" }
+        , tokenEndpoint = { defaultHttpsUrl | host = Config.auth0AppTenant, path = "/oauth/token" }
+        , logoutEndpoint = Just { defaultHttpsUrl | host = Config.auth0AppTenant, path = "/v2/logout", query = Just ("client_id=" ++ clientId ++ "&returnTo=") }
         , clientId = clientId
         , clientSecret = clientSecret
         , scope = [ "openid email profile" ]
