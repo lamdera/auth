@@ -4,6 +4,7 @@ import Base64.Encode as Base64
 import Browser.Navigation exposing (Key)
 import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
+import Env
 import OAuth
 import OAuth.AuthorizationCode as OAuth
 import Process
@@ -222,7 +223,7 @@ defaultHttpsUrl =
     }
 
 
-sleepTask isDev msg =
+sleepTask msg =
     -- Because in dev the backendmodel is only persisted every 2 seconds, we need to
     -- make sure we sleep a little before a redirect otherwise we won't have our
     -- persisted state.
@@ -245,3 +246,7 @@ type alias SessionId =
 
 type alias ClientId =
     String
+
+
+isDev =
+    Env.mode == Env.Development

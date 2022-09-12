@@ -123,9 +123,8 @@ type alias BackendUpdateConfig frontendMsg backendMsg toFrontend frontendModel b
         -> Maybe Auth.Common.Token
         -> Time.Posix
         -> ( { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }, Cmd backendMsg )
-    , isDev : Bool
     , renewSession : Auth.Common.SessionId -> Auth.Common.ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
-    , logout : Auth.Common.SessionId -> Auth.Common.ClientId -> Bool -> backendModel -> ( backendModel, Cmd backendMsg )
+    , logout : Auth.Common.SessionId -> Auth.Common.ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
     , logoutDelayed : Auth.Common.ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
     }
 
@@ -139,7 +138,7 @@ backendUpdate :
         { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }
     -> Auth.Common.BackendMsg
     -> ( { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }, Cmd backendMsg )
-backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMethod, handleAuthSuccess, isDev, renewSession, logout, logoutDelayed } authBackendMsg =
+backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMethod, handleAuthSuccess, renewSession, logout, logoutDelayed } authBackendMsg =
     let
         authError str =
             asToFrontend (Auth.Common.AuthError (Auth.Common.ErrAuthString str))
@@ -164,7 +163,7 @@ backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMe
                             config.initiateSignin sessionId clientId backendModel { username = username } now
 
                         Auth.Common.ProtocolOAuth config ->
-                            Auth.Protocol.OAuth.initiateSignin sessionId baseUrl config isDev asBackendMsg now backendModel
+                            Auth.Protocol.OAuth.initiateSignin sessionId baseUrl config asBackendMsg now backendModel
                 )
 
         Auth.Common.AuthSigninInitiatedDelayed_ sessionId initiateMsg ->
@@ -203,7 +202,7 @@ backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMe
             renewSession sessionId clientId backendModel
 
         Auth.Common.AuthLogout sessionId clientId ->
-            logout sessionId clientId isDev backendModel
+            logout sessionId clientId backendModel
 
         Auth.Common.AuthDelayedLogout clientId ->
             logoutDelayed clientId backendModel
@@ -303,8 +302,8 @@ findMethod methodId config =
     methodLoader config.methods methodId
 
 
-logoutRequest isDev logoutMsg =
-    Auth.Common.sleepTask isDev logoutMsg
+logoutRequest logoutMsg =
+    Auth.Common.sleepTask logoutMsg
 
 
 logoutRequestDelayed delayedLogoutMsg =

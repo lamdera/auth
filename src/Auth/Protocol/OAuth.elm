@@ -70,7 +70,7 @@ accessTokenRequested model methodId code state =
     )
 
 
-initiateSignin sessionId baseUrl config isDev asBackendMsg now backendModel =
+initiateSignin sessionId baseUrl config asBackendMsg now backendModel =
     let
         signedState =
             SHA1.toBase64 <|
@@ -93,7 +93,6 @@ initiateSignin sessionId baseUrl config isDev asBackendMsg now backendModel =
         | pendingAuths = backendModel.pendingAuths |> Dict.insert sessionId newPendingAuth
       }
     , Auth.Common.sleepTask
-        isDev
         (asBackendMsg
             (AuthSigninInitiatedDelayed_
                 sessionId
