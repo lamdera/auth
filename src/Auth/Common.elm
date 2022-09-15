@@ -67,7 +67,7 @@ type alias ConfigurationOAuth frontendMsg backendMsg frontendModel backendModel 
     { id : String
     , authorizationEndpoint : Url
     , tokenEndpoint : Url
-    , logoutEndpoint : Maybe LogoutEndpointConfig
+    , logoutEndpoint : LogoutEndpointConfig
     , clientId : String
 
     -- @TODO this will force a leak out as frontend uses this config?
@@ -130,10 +130,9 @@ type alias Token =
     }
 
 
-type alias LogoutEndpointConfig =
-    { url : Url
-    , returnPath : String
-    }
+type LogoutEndpointConfig
+    = Home { returnPath : String }
+    | Tenant { url : Url, returnPath : String }
 
 
 type Provider

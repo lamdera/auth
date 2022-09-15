@@ -35,7 +35,7 @@ configuration clientId clientSecret =
         , authorizationEndpoint = { defaultHttpsUrl | host = Config.auth0AppTenant, path = "/authorize" }
         , tokenEndpoint = { defaultHttpsUrl | host = Config.auth0AppTenant, path = "/oauth/token" }
         , logoutEndpoint =
-            Just
+            Tenant
                 { url =
                     { defaultHttpsUrl
                         | host = Config.auth0AppTenant
@@ -116,7 +116,7 @@ getUserInfo authenticationSuccess =
                     )
     in
     Task.mapError (Auth.Common.ErrAuthString << HttpHelpers.httpErrorToString) <|
-        case Debug.log ">>>>" stuff of
+        case stuff of
             Ok result ->
                 Task.succeed
                     { name = Maybe.withDefault "" result.given_name ++ " " ++ Maybe.withDefault "" result.family_name

@@ -255,7 +255,11 @@ signOutRequested :
     -> ( { frontendModel | authFlow : Auth.Common.Flow, authRedirectBaseUrl : Url }, Cmd msg )
 signOutRequested model =
     ( { model | authFlow = Auth.Common.Idle }
-    , AuthToBackend Auth.Common.AuthLogoutRequested |> sendToBackend
+    , Cmd.batch
+        [ AuthToBackend Auth.Common.AuthLogoutRequested |> sendToBackend
+
+        --, Navigation.load (Url.toString model.authRedirectBaseUrl)
+        ]
     )
 
 
