@@ -224,6 +224,15 @@ signInRequested methodId model username =
     )
 
 
+signOutRequested :
+    { frontendModel | authFlow : Auth.Common.Flow, authRedirectBaseUrl : Url }
+    -> ( { frontendModel | authFlow : Auth.Common.Flow, authRedirectBaseUrl : Url }, Cmd msg )
+signOutRequested model =
+    ( { model | authFlow = Auth.Common.Idle }
+    , AuthToBackend Auth.Common.AuthLogoutRequested |> sendToBackend
+    )
+
+
 startProviderSignin :
     Url
     -> { frontendModel | authFlow : Auth.Common.Flow }
