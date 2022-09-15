@@ -63,7 +63,7 @@ type alias ConfigurationOAuth frontendMsg backendMsg frontendModel backendModel 
     { id : String
     , authorizationEndpoint : Url
     , tokenEndpoint : Url
-    , logoutEndpoint : Maybe Url
+    , logoutEndpoint : Maybe LogoutEndpointConfig
     , clientId : String
 
     -- @TODO this will force a leak out as frontend uses this config?
@@ -103,15 +103,12 @@ type BackendMsg
     | AuthSuccess SessionId ClientId MethodId Time.Posix (Result Error ( UserInfo, Maybe Token ))
     | AuthRenewSession SessionId ClientId
     | AuthLogout SessionId ClientId
-    | AuthDelayedLogout ClientId
 
 
 type ToFrontend
     = AuthInitiateSignin Url
     | AuthError Error
     | AuthSessionChallenge AuthChallengeReason
-    | AuthSetMethodId MethodId
-    | AuthSignOut
 
 
 type AuthChallengeReason
@@ -126,6 +123,12 @@ type alias Token =
     , token : OAuth.Token
     , created : Time.Posix
     , expires : Time.Posix
+    }
+
+
+type alias LogoutEndpointConfig =
+    { url : Url
+    , returnPath : String
     }
 
 

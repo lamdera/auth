@@ -25,12 +25,12 @@ code](https://github.com/truqu/elm-oauth2/blob/master/examples/providers/auth0/p
 ## Overview
 
                                          +-----------------+
-                                         |  Auth   Server  |
+                                         |  Login   Server  |
         +-------+                        | +-------------+ |
-        |       |--(1)- Auth Request --->| |             | |
-        |       |    + code_challenge    | |    Auth     | |
+        |       |--(1)- Login Request --->| |             | |
+        |       |    + code_challenge    | |    Login     | |
         |       |                        | |   Endpoint  | |
-        |       |<-(2)-- Auth Code ------| |             | |
+        |       |<-(2)-- Login Code ------| |             | |
         |  Elm  |                        | +-------------+ |
         |  App  |                        |                 |
         |       |                        | +-------------+ |

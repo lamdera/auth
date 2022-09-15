@@ -1,6 +1,6 @@
 module Auth.Flow exposing (..)
 
-import Auth.Common exposing (MethodId)
+import Auth.Common exposing (MethodId, ToBackend(..))
 import Auth.Method.EmailMagicLink
 import Auth.Method.OAuthGithub
 import Auth.Method.OAuthGoogle
@@ -9,6 +9,7 @@ import Bridge exposing (ToBackend(..), sendToBackend)
 import Browser.Navigation as Navigation
 import Dict exposing (Dict)
 import Dict.Extra as Dict
+import Gen.Route as Route
 import Http
 import HttpHelpers
 import Json.Decode as Json
@@ -20,6 +21,7 @@ import SHA1
 import Task
 import Time
 import Url exposing (Protocol(..), Url)
+import Utils.Route
 
 
 init :
@@ -51,6 +53,13 @@ init model methodId origin navigationKey toBackendFn =
             ( { model | authFlow = Auth.Common.Errored <| Auth.Common.ErrAuthString ("Unsupported auth method: " ++ methodId) }
             , clearUrl
             )
+
+
+onFrontendLogoutCallback navigationKey toBackendFn =
+    Cmd.batch
+        [ toBackendFn AuthLogoutRequested
+        , Utils.Route.navigate navigationKey Route.Home_
+        ]
 
 
 updateFromFrontend { asBackendMsg } clientId sessionId authToBackend model =
@@ -125,7 +134,6 @@ type alias BackendUpdateConfig frontendMsg backendMsg toFrontend frontendModel b
         -> ( { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }, Cmd backendMsg )
     , renewSession : Auth.Common.SessionId -> Auth.Common.ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
     , logout : Auth.Common.SessionId -> Auth.Common.ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
-    , logoutDelayed : Auth.Common.ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
     }
 
 
@@ -138,7 +146,7 @@ backendUpdate :
         { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }
     -> Auth.Common.BackendMsg
     -> ( { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }, Cmd backendMsg )
-backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMethod, handleAuthSuccess, renewSession, logout, logoutDelayed } authBackendMsg =
+backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMethod, handleAuthSuccess, renewSession, logout } authBackendMsg =
     let
         authError str =
             asToFrontend (Auth.Common.AuthError (Auth.Common.ErrAuthString str))
@@ -204,9 +212,6 @@ backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMe
         Auth.Common.AuthLogout sessionId clientId ->
             logout sessionId clientId backendModel
 
-        Auth.Common.AuthDelayedLogout clientId ->
-            logoutDelayed clientId backendModel
-
 
 signInRequested :
     Auth.Common.MethodId
@@ -243,15 +248,6 @@ setAuthFlow :
     -> ( { frontendModel | authFlow : Auth.Common.Flow }, Cmd msg )
 setAuthFlow model flow =
     ( { model | authFlow = flow }, Cmd.none )
-
-
-signOutRequested :
-    { frontendModel | authFlow : Auth.Common.Flow }
-    -> ( { frontendModel | authFlow : Auth.Common.Flow }, Cmd msg )
-signOutRequested model =
-    ( { model | authFlow = Auth.Common.Idle }
-    , AuthToBackend Auth.Common.AuthLogoutRequested |> sendToBackend
-    )
 
 
 errorToString : Auth.Common.Error -> String
@@ -300,11 +296,3 @@ findMethod :
     -> Maybe (Auth.Common.Configuration frontendMsg backendMsg frontendModel backendModel)
 findMethod methodId config =
     methodLoader config.methods methodId
-
-
-logoutRequest logoutMsg =
-    Auth.Common.sleepTask logoutMsg
-
-
-logoutRequestDelayed delayedLogoutMsg =
-    delayedLogoutMsg

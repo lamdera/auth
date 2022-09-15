@@ -34,7 +34,16 @@ configuration clientId clientSecret =
         { id = "OAuthAuth0"
         , authorizationEndpoint = { defaultHttpsUrl | host = Config.auth0AppTenant, path = "/authorize" }
         , tokenEndpoint = { defaultHttpsUrl | host = Config.auth0AppTenant, path = "/oauth/token" }
-        , logoutEndpoint = Just { defaultHttpsUrl | host = Config.auth0AppTenant, path = "/v2/logout", query = Just ("client_id=" ++ clientId ++ "&returnTo=") }
+        , logoutEndpoint =
+            Just
+                { url =
+                    { defaultHttpsUrl
+                        | host = Config.auth0AppTenant
+                        , path = "/v2/logout"
+                        , query = Just ("client_id=" ++ clientId ++ "&returnTo=")
+                    }
+                , returnPath = "/logout/OAuthAuth0/callback"
+                }
         , clientId = clientId
         , clientSecret = clientSecret
         , scope = [ "openid email profile" ]
