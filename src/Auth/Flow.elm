@@ -242,6 +242,14 @@ setError model err =
     setAuthFlow model <| Auth.Common.Errored err
 
 
+setAuthFlow :
+    { frontendModel | authFlow : Auth.Common.Flow }
+    -> Auth.Common.Flow
+    -> ( { frontendModel | authFlow : Auth.Common.Flow }, Cmd msg )
+setAuthFlow model flow =
+    ( { model | authFlow = flow }, Cmd.none )
+
+
 signOutRequested :
     { frontendModel | authFlow : Auth.Common.Flow, authRedirectBaseUrl : Url }
     -> ( { frontendModel | authFlow : Auth.Common.Flow, authRedirectBaseUrl : Url }, Cmd msg )
@@ -249,14 +257,6 @@ signOutRequested model =
     ( { model | authFlow = Auth.Common.Idle }
     , AuthToBackend Auth.Common.AuthLogoutRequested |> sendToBackend
     )
-
-
-setAuthFlow :
-    { frontendModel | authFlow : Auth.Common.Flow }
-    -> Auth.Common.Flow
-    -> ( { frontendModel | authFlow : Auth.Common.Flow }, Cmd msg )
-setAuthFlow model flow =
-    ( { model | authFlow = flow }, Cmd.none )
 
 
 errorToString : Auth.Common.Error -> String
