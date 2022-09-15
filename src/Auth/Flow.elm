@@ -250,19 +250,6 @@ setAuthFlow model flow =
     ( { model | authFlow = flow }, Cmd.none )
 
 
-signOutRequested :
-    { frontendModel | authFlow : Auth.Common.Flow, authRedirectBaseUrl : Url }
-    -> ( { frontendModel | authFlow : Auth.Common.Flow, authRedirectBaseUrl : Url }, Cmd msg )
-signOutRequested model =
-    ( { model | authFlow = Auth.Common.Idle }
-    , Cmd.batch
-        [ AuthToBackend Auth.Common.AuthLogoutRequested |> sendToBackend
-
-        --, Navigation.load (Url.toString model.authRedirectBaseUrl)
-        ]
-    )
-
-
 errorToString : Auth.Common.Error -> String
 errorToString error =
     case error of
