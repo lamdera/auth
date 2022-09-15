@@ -234,6 +234,14 @@ startProviderSignin url model =
     )
 
 
+setError :
+    { frontendModel | authFlow : Auth.Common.Flow }
+    -> Auth.Common.Error
+    -> ( { frontendModel | authFlow : Auth.Common.Flow }, Cmd msg )
+setError model err =
+    setAuthFlow model <| Auth.Common.Errored err
+
+
 signOutRequested :
     { frontendModel | authFlow : Auth.Common.Flow, authRedirectBaseUrl : Url }
     -> ( { frontendModel | authFlow : Auth.Common.Flow, authRedirectBaseUrl : Url }, Cmd msg )
@@ -241,14 +249,6 @@ signOutRequested model =
     ( { model | authFlow = Auth.Common.Idle }
     , AuthToBackend Auth.Common.AuthLogoutRequested |> sendToBackend
     )
-
-
-setError :
-    { frontendModel | authFlow : Auth.Common.Flow }
-    -> Auth.Common.Error
-    -> ( { frontendModel | authFlow : Auth.Common.Flow }, Cmd msg )
-setError model err =
-    setAuthFlow model <| Auth.Common.Errored err
 
 
 setAuthFlow :
