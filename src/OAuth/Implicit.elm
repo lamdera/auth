@@ -21,8 +21,8 @@ code](https://github.com/truqu/elm-oauth2/blob/master/examples/providers/auth0/i
 ## Overview
 
        +---------+                                +--------+
-       |         |---(A)- Login Redirection ------>|        |
-       |         |                                |  Login  |
+       |         |---(A)- Auth Redirection ------>|        |
+       |         |                                |  Auth  |
        | Browser |                                | Server |
        |         |                                |        |
        |         |<--(B)- Redirection Callback ---|        |

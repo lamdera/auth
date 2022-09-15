@@ -100,6 +100,7 @@ import Auth.Common
 type alias FrontendModel =
   { ...
   , authFlow : Auth.Common.Flow
+  , authRedirectBaseUrl : Url
   }
 
 type alias BackendModel =

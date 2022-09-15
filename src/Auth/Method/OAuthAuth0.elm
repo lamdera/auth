@@ -110,13 +110,13 @@ getUserInfo authenticationSuccess =
                                 }
                             )
                             (extract "email" Json.string meta)
-                            (extractOptional Nothing "email_verified" (Json.bool |> Json.nullable) meta)
+                            (extract "email_verified" Json.bool meta)
                             (extractOptional Nothing "given_name" (Json.string |> Json.nullable) meta)
                             (extractOptional Nothing "family_name" (Json.string |> Json.nullable) meta)
                     )
     in
     Task.mapError (Auth.Common.ErrAuthString << HttpHelpers.httpErrorToString) <|
-        case stuff of
+        case Debug.log ">>>>" stuff of
             Ok result ->
                 Task.succeed
                     { name = Maybe.withDefault "" result.given_name ++ " " ++ Maybe.withDefault "" result.family_name
