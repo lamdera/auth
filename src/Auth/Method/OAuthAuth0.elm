@@ -5,19 +5,15 @@ import Auth.Protocol.OAuth
 import Base64.Encode as Base64
 import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
-import Config
 import Dict exposing (Dict)
-import Env exposing (..)
 import Http
 import HttpHelpers
 import JWT exposing (..)
 import JWT.JWS as JWS
 import Json.Decode as Json
-import OAuth
 import OAuth.AuthorizationCode as OAuth
 import Task exposing (Task)
 import Url exposing (Protocol(..), Url)
-import Url.Builder exposing (absolute)
 
 
 configuration :
