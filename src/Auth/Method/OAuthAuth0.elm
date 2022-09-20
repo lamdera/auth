@@ -23,22 +23,23 @@ import Url.Builder exposing (absolute)
 configuration :
     String
     -> String
+    -> String
     ->
         Configuration
             frontendMsg
             backendMsg
             { frontendModel | authFlow : Flow, authRedirectBaseUrl : Url }
             backendModel
-configuration clientId clientSecret =
+configuration clientId clientSecret appTenant =
     ProtocolOAuth
         { id = "OAuthAuth0"
-        , authorizationEndpoint = { defaultHttpsUrl | host = Config.auth0AppTenant, path = "/authorize" }
-        , tokenEndpoint = { defaultHttpsUrl | host = Config.auth0AppTenant, path = "/oauth/token" }
+        , authorizationEndpoint = { defaultHttpsUrl | host = appTenant, path = "/authorize" }
+        , tokenEndpoint = { defaultHttpsUrl | host = appTenant, path = "/oauth/token" }
         , logoutEndpoint =
             Tenant
                 { url =
                     { defaultHttpsUrl
-                        | host = Config.auth0AppTenant
+                        | host = appTenant
                         , path = "/v2/logout"
                         , query = Just ("client_id=" ++ clientId ++ "&returnTo=")
                     }
