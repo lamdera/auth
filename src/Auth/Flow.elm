@@ -5,14 +5,8 @@ import Auth.Method.EmailMagicLink
 import Auth.Method.OAuthGithub
 import Auth.Method.OAuthGoogle
 import Auth.Protocol.OAuth
-import Bridge exposing (ToBackend(..), sendToBackend)
 import Browser.Navigation as Navigation
 import Dict exposing (Dict)
-import Dict.Extra as Dict
-import Gen.Route as Route
-import Http
-import HttpHelpers
-import Json.Decode as Json
 import List.Extra as List
 import OAuth
 import OAuth.AuthorizationCode as OAuth
@@ -21,7 +15,6 @@ import SHA1
 import Task
 import Time
 import Url exposing (Protocol(..), Url)
-import Utils.Route
 
 
 init :
@@ -55,10 +48,10 @@ init model methodId origin navigationKey toBackendFn =
             )
 
 
-onFrontendLogoutCallback navigationKey toBackendFn =
+onFrontendLogoutCallback navigationMsg toBackendFn =
     Cmd.batch
         [ toBackendFn AuthLogoutRequested
-        , Utils.Route.navigate navigationKey Route.Home_
+        , navigationMsg
         ]
 
 
