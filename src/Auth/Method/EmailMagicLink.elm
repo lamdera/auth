@@ -24,6 +24,7 @@ configuration :
         SessionId
         -> ClientId
         -> backendModel
+        -> Bool
         -> { username : Maybe String }
         -> Time.Posix
         -> ( backendModel, Cmd backendMsg )

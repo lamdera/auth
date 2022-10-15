@@ -5,7 +5,6 @@ import Browser.Navigation exposing (Key)
 import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
 import Dict exposing (Dict)
-import Env
 import Http
 import Json.Decode as Json
 import OAuth
@@ -39,6 +38,7 @@ type alias ConfigurationEmailMagicLink frontendMsg backendMsg frontendModel back
         SessionId
         -> ClientId
         -> backendModel
+        -> Bool
         -> { username : Maybe String }
         -> Time.Posix
         -> ( backendModel, Cmd backendMsg )
@@ -229,7 +229,7 @@ defaultHttpsUrl =
     }
 
 
-sleepTask msg =
+sleepTask isDev msg =
     -- Because in dev the backendmodel is only persisted every 2 seconds, we need to
     -- make sure we sleep a little before a redirect otherwise we won't have our
     -- persisted state.
@@ -252,7 +252,3 @@ type alias SessionId =
 
 type alias ClientId =
     String
-
-
-isDev =
-    Env.mode == Env.Development
