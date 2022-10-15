@@ -3,6 +3,7 @@ module Auth.Method.OAuthGithub exposing (..)
 import Auth.Common exposing (..)
 import Auth.Protocol.OAuth
 import Base64.Encode as Base64
+import Browser.Navigation as Navigation
 import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
 import Http
@@ -31,6 +32,7 @@ configuration clientId clientSecret =
         { id = "OAuthGithub"
         , authorizationEndpoint = { defaultHttpsUrl | host = "github.com", path = "/login/oauth/authorize" }
         , tokenEndpoint = { defaultHttpsUrl | host = "github.com", path = "/login/oauth/access_token" }
+        , logoutEndpoint = Home { returnPath = "/logout/OAuthGithub/callback" }
         , clientId = clientId
         , clientSecret = clientSecret
         , scope = [ "read:user", "user:email" ]

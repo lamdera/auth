@@ -1,16 +1,12 @@
 module Auth.Flow exposing (..)
 
-import Auth.Common
+import Auth.Common exposing (MethodId, ToBackend(..))
 import Auth.Method.EmailMagicLink
 import Auth.Method.OAuthGithub
 import Auth.Method.OAuthGoogle
 import Auth.Protocol.OAuth
 import Browser.Navigation as Navigation
 import Dict exposing (Dict)
-import Dict.Extra as Dict
-import Http
-import HttpHelpers
-import Json.Decode as Json
 import List.Extra as List
 import OAuth
 import OAuth.AuthorizationCode as OAuth
@@ -39,6 +35,9 @@ init model methodId origin navigationKey toBackendFn =
         "OAuthGoogle" ->
             Auth.Protocol.OAuth.onFrontendCallbackInit model methodId origin navigationKey toBackendFn
 
+        "OAuthAuth0" ->
+            Auth.Protocol.OAuth.onFrontendCallbackInit model methodId origin navigationKey toBackendFn
+
         _ ->
             let
                 clearUrl =
@@ -49,7 +48,14 @@ init model methodId origin navigationKey toBackendFn =
             )
 
 
-updateFromFrontend { logout, asBackendMsg } clientId sessionId authToBackend model =
+onFrontendLogoutCallback navigationMsg toBackendFn =
+    Cmd.batch
+        [ toBackendFn AuthLogoutRequested
+        , navigationMsg
+        ]
+
+
+updateFromFrontend { asBackendMsg } clientId sessionId authToBackend model =
     case authToBackend of
         Auth.Common.AuthSigninInitiated params ->
             ( model
@@ -95,7 +101,14 @@ updateFromFrontend { logout, asBackendMsg } clientId sessionId authToBackend mod
             )
 
         Auth.Common.AuthLogoutRequested ->
-            logout sessionId clientId model
+            ( model
+            , Time.now
+                |> Task.perform
+                    (\t ->
+                        asBackendMsg <|
+                            Auth.Common.AuthLogout sessionId clientId
+                    )
+            )
 
 
 type alias BackendUpdateConfig frontendMsg backendMsg toFrontend frontendModel backendModel =
@@ -108,10 +121,10 @@ type alias BackendUpdateConfig frontendMsg backendMsg toFrontend frontendModel b
         Auth.Common.SessionId
         -> Auth.Common.ClientId
         -> Auth.Common.UserInfo
+        -> MethodId
         -> Maybe Auth.Common.Token
         -> Time.Posix
         -> ( { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }, Cmd backendMsg )
-    , isDev : Bool
     , renewSession : Auth.Common.SessionId -> Auth.Common.ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
     , logout : Auth.Common.SessionId -> Auth.Common.ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
     }
@@ -126,7 +139,7 @@ backendUpdate :
         { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }
     -> Auth.Common.BackendMsg
     -> ( { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }, Cmd backendMsg )
-backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMethod, handleAuthSuccess, isDev, renewSession } authBackendMsg =
+backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMethod, handleAuthSuccess, renewSession, logout } authBackendMsg =
     let
         authError str =
             asToFrontend (Auth.Common.AuthError (Auth.Common.ErrAuthString str))
@@ -151,7 +164,7 @@ backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMe
                             config.initiateSignin sessionId clientId backendModel { username = username } now
 
                         Auth.Common.ProtocolOAuth config ->
-                            Auth.Protocol.OAuth.initiateSignin sessionId baseUrl config isDev asBackendMsg now backendModel
+                            Auth.Protocol.OAuth.initiateSignin sessionId baseUrl config asBackendMsg now backendModel
                 )
 
         Auth.Common.AuthSigninInitiatedDelayed_ sessionId initiateMsg ->
@@ -179,7 +192,7 @@ backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMe
                 (\method ->
                     case res of
                         Ok ( userInfo, authToken ) ->
-                            handleAuthSuccess sessionId clientId userInfo authToken now
+                            handleAuthSuccess sessionId clientId userInfo methodId authToken now
                                 |> Tuple.mapFirst removeSession
 
                         Err err ->
@@ -188,6 +201,9 @@ backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMe
 
         Auth.Common.AuthRenewSession sessionId clientId ->
             renewSession sessionId clientId backendModel
+
+        Auth.Common.AuthLogout sessionId clientId ->
+            logout sessionId clientId backendModel
 
 
 signInRequested :
@@ -225,15 +241,6 @@ setAuthFlow :
     -> ( { frontendModel | authFlow : Auth.Common.Flow }, Cmd msg )
 setAuthFlow model flow =
     ( { model | authFlow = flow }, Cmd.none )
-
-
-signOutRequested :
-    { frontendModel | authFlow : Auth.Common.Flow, authRedirectBaseUrl : Url }
-    -> ( { frontendModel | authFlow : Auth.Common.Flow, authRedirectBaseUrl : Url }, Cmd msg )
-signOutRequested model =
-    ( { model | authFlow = Auth.Common.Idle }
-    , Navigation.load (Url.toString model.authRedirectBaseUrl)
-    )
 
 
 errorToString : Auth.Common.Error -> String

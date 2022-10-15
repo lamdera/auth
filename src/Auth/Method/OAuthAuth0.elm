@@ -1,4 +1,4 @@
-module Auth.Method.OAuthGoogle exposing (..)
+module Auth.Method.OAuthAuth0 exposing (..)
 
 import Auth.Common exposing (..)
 import Auth.Protocol.OAuth
@@ -11,15 +11,14 @@ import HttpHelpers
 import JWT exposing (..)
 import JWT.JWS as JWS
 import Json.Decode as Json
-import OAuth
 import OAuth.AuthorizationCode as OAuth
 import Task exposing (Task)
 import Url exposing (Protocol(..), Url)
-import Url.Builder
 
 
 configuration :
     String
+    -> String
     -> String
     ->
         Configuration
@@ -27,12 +26,21 @@ configuration :
             backendMsg
             { frontendModel | authFlow : Flow, authRedirectBaseUrl : Url }
             backendModel
-configuration clientId clientSecret =
+configuration clientId clientSecret appTenant =
     ProtocolOAuth
-        { id = "OAuthGoogle"
-        , authorizationEndpoint = { defaultHttpsUrl | host = "accounts.google.com", path = "/o/oauth2/v2/auth" }
-        , tokenEndpoint = { defaultHttpsUrl | host = "oauth2.googleapis.com", path = "/token" }
-        , logoutEndpoint = Home { returnPath = "/logout/OAuthGoogle/callback" }
+        { id = "OAuthAuth0"
+        , authorizationEndpoint = { defaultHttpsUrl | host = appTenant, path = "/authorize" }
+        , tokenEndpoint = { defaultHttpsUrl | host = appTenant, path = "/oauth/token" }
+        , logoutEndpoint =
+            Tenant
+                { url =
+                    { defaultHttpsUrl
+                        | host = appTenant
+                        , path = "/v2/logout"
+                        , query = Just ("client_id=" ++ clientId ++ "&returnTo=")
+                    }
+                , returnPath = "/logout/OAuthAuth0/callback"
+                }
         , clientId = clientId
         , clientSecret = clientSecret
         , scope = [ "openid email profile" ]
@@ -100,7 +108,7 @@ getUserInfo authenticationSuccess =
                             )
                             (extract "email" Json.string meta)
                             (extract "email_verified" Json.bool meta)
-                            (extract "given_name" Json.string meta)
+                            (extractOptional Nothing "given_name" (Json.string |> Json.nullable) meta)
                             (extractOptional Nothing "family_name" (Json.string |> Json.nullable) meta)
                     )
     in
@@ -108,7 +116,7 @@ getUserInfo authenticationSuccess =
         case stuff of
             Ok result ->
                 Task.succeed
-                    { name = result.given_name ++ " " ++ Maybe.withDefault "" result.family_name
+                    { name = Maybe.withDefault "" result.given_name ++ " " ++ Maybe.withDefault "" result.family_name
                     , email = result.email
                     , username = Nothing
                     }

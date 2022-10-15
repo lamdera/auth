@@ -70,7 +70,7 @@ accessTokenRequested model methodId code state =
     )
 
 
-initiateSignin sessionId baseUrl config isDev asBackendMsg now backendModel =
+initiateSignin sessionId baseUrl config asBackendMsg now backendModel =
     let
         signedState =
             SHA1.toBase64 <|
@@ -88,29 +88,17 @@ initiateSignin sessionId baseUrl config isDev asBackendMsg now backendModel =
 
         url =
             generateSigninUrl baseUrl signedState config
-
-        sleepIfDevForBackendPersistence =
-            -- Because in dev the backendmodel is only persisted every 2 seconds, we need to
-            -- make sure we sleep a little before a redirect otherwise we won't have our
-            -- peristed state.
-            if isDev then
-                Process.sleep 3000
-
-            else
-                Process.sleep 0
     in
     ( { backendModel
         | pendingAuths = backendModel.pendingAuths |> Dict.insert sessionId newPendingAuth
       }
-    , sleepIfDevForBackendPersistence
-        |> Task.perform
-            (always
-                (AuthSigninInitiatedDelayed_
-                    sessionId
-                    (AuthInitiateSignin url)
-                )
+    , Auth.Common.sleepTask
+        (asBackendMsg
+            (AuthSigninInitiatedDelayed_
+                sessionId
+                (AuthInitiateSignin url)
             )
-        |> Cmd.map asBackendMsg
+        )
     )
 
 
