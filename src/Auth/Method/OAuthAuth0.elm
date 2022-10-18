@@ -1,13 +1,13 @@
 module Auth.Method.OAuthAuth0 exposing (..)
 
 import Auth.Common exposing (..)
+import Auth.HttpHelpers as HttpHelpers
 import Auth.Protocol.OAuth
 import Base64.Encode as Base64
 import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
 import Dict exposing (Dict)
 import Http
-import HttpHelpers
 import JWT exposing (..)
 import JWT.JWS as JWS
 import Json.Decode as Json

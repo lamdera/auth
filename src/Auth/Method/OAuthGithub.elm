@@ -1,13 +1,13 @@
 module Auth.Method.OAuthGithub exposing (..)
 
 import Auth.Common exposing (..)
+import Auth.HttpHelpers as HttpHelpers
 import Auth.Protocol.OAuth
 import Base64.Encode as Base64
 import Browser.Navigation as Navigation
 import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
 import Http
-import HttpHelpers
 import Json.Decode as Json
 import Json.Decode.Pipeline exposing (..)
 import List.Extra as List

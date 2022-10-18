@@ -6,7 +6,6 @@ import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
 import Dict exposing (Dict)
 import Http
-import HttpHelpers
 import Json.Decode as Json
 import List.Extra as List
 import OAuth
