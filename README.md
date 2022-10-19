@@ -1,6 +1,6 @@
 # Lamdera Auth
 
-This library is experimental and a work in progress!
+This library is a work in progress!
 
 ### Example implementation
 
@@ -39,20 +39,20 @@ Until this is available as a package:
 - Reference `src` in your project's `elm.json:source-directories`
 - Install the relevant deps:
 ```
-yes | elm install elm/browser
-yes | elm install elm/bytes
-yes | elm install elm/http
-yes | elm install elm/json
-yes | elm install elm/regex
-yes | elm install elm/time
-yes | elm install elm/url
-yes | elm install elm-community/dict-extra
-yes | elm install elm-community/list-extra
-yes | elm install chelovek0v/bbase64
-yes | elm install ktonon/elm-crypto
-yes | elm install ktonon/elm-word
-yes | elm install NoRedInk/elm-json-decode-pipeline
-yes | elm install TSFoster/elm-sha1
+yes | lamdera install elm/browser
+yes | lamdera install elm/bytes
+yes | lamdera install elm/http
+yes | lamdera install elm/json
+yes | lamdera install elm/regex
+yes | lamdera install elm/time
+yes | lamdera install elm/url
+yes | lamdera install elm-community/dict-extra
+yes | lamdera install elm-community/list-extra
+yes | lamdera install chelovek0v/bbase64
+yes | lamdera install ktonon/elm-crypto
+yes | lamdera install ktonon/elm-word
+yes | lamdera install NoRedInk/elm-json-decode-pipeline
+yes | lamdera install TSFoster/elm-sha1
 ```
 
 You might also have luck with [elm-git-install](https://github.com/robinheghan/elm-git-install), though its not been tried yet.
@@ -94,8 +94,10 @@ config =
 
 
 ```elm
-import Url exposing (Url)
 import Auth.Common
+import Dict exposing (Dict)
+import Lamdera
+import Url exposing (Url)
 
 type alias FrontendModel =
   { ...

@@ -1,4 +1,4 @@
-module HttpHelpers exposing (..)
+module Auth.HttpHelpers exposing (..)
 
 -- import Effect.Http exposing (..)
 

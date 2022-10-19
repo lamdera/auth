@@ -128,6 +128,7 @@ type alias BackendUpdateConfig frontendMsg backendMsg toFrontend frontendModel b
         -> ( { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }, Cmd backendMsg )
     , renewSession : Auth.Common.SessionId -> Auth.Common.ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
     , logout : Auth.Common.SessionId -> Auth.Common.ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
+    , isDev : Bool
     }
 
 
@@ -140,7 +141,7 @@ backendUpdate :
         { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }
     -> Auth.Common.BackendMsg
     -> ( { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }, Cmd backendMsg )
-backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMethod, handleAuthSuccess, renewSession, logout } authBackendMsg =
+backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMethod, handleAuthSuccess, renewSession, logout, isDev } authBackendMsg =
     let
         authError str =
             asToFrontend (Auth.Common.AuthError (Auth.Common.ErrAuthString str))
@@ -162,7 +163,7 @@ backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMe
                 (\method ->
                     case method of
                         Auth.Common.ProtocolEmailMagicLink config ->
-                            config.initiateSignin sessionId clientId backendModel { username = username } now
+                            config.initiateSignin sessionId clientId backendModel isDev { username = username } now
 
                         Auth.Common.ProtocolOAuth config ->
                             let

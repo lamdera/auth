@@ -1,10 +1,10 @@
 module Auth.Protocol.OAuth exposing (..)
 
 import Auth.Common exposing (..)
+import Auth.HttpHelpers as HttpHelpers
 import Browser.Navigation as Navigation
 import Dict exposing (Dict)
 import Http
-import HttpHelpers
 import Json.Decode as Json
 import List.Extra as List
 import OAuth
@@ -70,7 +70,7 @@ accessTokenRequested model methodId code state =
     )
 
 
-initiateSignin sessionId baseUrl config asBackendMsg now backendModel =
+initiateSignin sessionId baseUrl isDev config asBackendMsg now backendModel =
     let
         signedState =
             SHA1.toBase64 <|
@@ -92,7 +92,7 @@ initiateSignin sessionId baseUrl config asBackendMsg now backendModel =
     ( { backendModel
         | pendingAuths = backendModel.pendingAuths |> Dict.insert sessionId newPendingAuth
       }
-    , Auth.Common.sleepTask
+    , Auth.Common.sleepTask isDev
         (asBackendMsg
             (AuthSigninInitiatedDelayed_
                 sessionId

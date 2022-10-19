@@ -6,7 +6,6 @@ import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
 import Dict exposing (Dict)
 import Http
-import HttpHelpers
 import Json.Decode as Json
 import List.Extra as List
 import OAuth
@@ -24,6 +23,7 @@ configuration :
         SessionId
         -> ClientId
         -> backendModel
+        -> Bool
         -> { username : Maybe String }
         -> Time.Posix
         -> ( backendModel, Cmd backendMsg )
