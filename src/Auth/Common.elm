@@ -37,7 +37,6 @@ type alias ConfigurationEmailMagicLink frontendMsg backendMsg frontendModel back
         SessionId
         -> ClientId
         -> backendModel
-        -> Bool
         -> { username : Maybe String }
         -> Time.Posix
         -> ( backendModel, Cmd backendMsg )
