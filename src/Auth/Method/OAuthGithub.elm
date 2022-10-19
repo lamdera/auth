@@ -33,6 +33,7 @@ configuration clientId clientSecret =
         , authorizationEndpoint = { defaultHttpsUrl | host = "github.com", path = "/login/oauth/authorize" }
         , tokenEndpoint = { defaultHttpsUrl | host = "github.com", path = "/login/oauth/access_token" }
         , logoutEndpoint = Home { returnPath = "/logout/OAuthGithub/callback" }
+        , allowLoginQueryParameters = True
         , clientId = clientId
         , clientSecret = clientSecret
         , scope = [ "read:user", "user:email" ]

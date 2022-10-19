@@ -1,6 +1,6 @@
 module Auth.Flow exposing (..)
 
-import Auth.Common exposing (MethodId, ToBackend(..))
+import Auth.Common exposing (LogoutEndpointConfig(..), MethodId, ToBackend(..))
 import Auth.Method.EmailMagicLink
 import Auth.Method.OAuthGithub
 import Auth.Method.OAuthGoogle
@@ -15,6 +15,7 @@ import SHA1
 import Task
 import Time
 import Url exposing (Protocol(..), Url)
+import Url.Builder exposing (QueryParameter)
 
 
 init :
@@ -164,7 +165,15 @@ backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMe
                             config.initiateSignin sessionId clientId backendModel { username = username } now
 
                         Auth.Common.ProtocolOAuth config ->
-                            Auth.Protocol.OAuth.initiateSignin sessionId baseUrl config asBackendMsg now backendModel
+                            let
+                                queryAdjustedUrl =
+                                    if config.allowLoginQueryParameters then
+                                        baseUrl
+
+                                    else
+                                        { baseUrl | query = Nothing }
+                            in
+                            Auth.Protocol.OAuth.initiateSignin sessionId queryAdjustedUrl config asBackendMsg now backendModel
                 )
 
         Auth.Common.AuthSigninInitiatedDelayed_ sessionId initiateMsg ->
@@ -214,6 +223,33 @@ signInRequested :
 signInRequested methodId model username =
     ( { model | authFlow = Auth.Common.Requested methodId }
     , Auth.Common.AuthSigninInitiated { methodId = methodId, baseUrl = model.authRedirectBaseUrl, username = username }
+    )
+
+
+signOutRequested :
+    Maybe LogoutEndpointConfig
+    -> List QueryParameter
+    -> { a | authFlow : Auth.Common.Flow, authLogoutReturnUrlBase : Url }
+    -> ( { a | authFlow : Auth.Common.Flow, authLogoutReturnUrlBase : Url }, Cmd msg )
+signOutRequested maybeUrlConfig callBackQueries model =
+    ( { model | authFlow = Auth.Common.Idle }
+    , case maybeUrlConfig of
+        Just (Tenant urlConfig) ->
+            Navigation.load <|
+                Url.toString urlConfig.url
+                    ++ Url.toString model.authLogoutReturnUrlBase
+                    ++ urlConfig.returnPath
+                    ++ Url.Builder.toQuery callBackQueries
+
+        Just (Home homeUrlConfig) ->
+            Navigation.load <|
+                Url.toString model.authLogoutReturnUrlBase
+                    ++ homeUrlConfig.returnPath
+
+        Nothing ->
+            Navigation.load <|
+                Url.toString model.authLogoutReturnUrlBase
+                    ++ Url.Builder.toQuery callBackQueries
     )
 
 

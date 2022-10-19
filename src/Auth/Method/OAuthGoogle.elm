@@ -33,6 +33,7 @@ configuration clientId clientSecret =
         , authorizationEndpoint = { defaultHttpsUrl | host = "accounts.google.com", path = "/o/oauth2/v2/auth" }
         , tokenEndpoint = { defaultHttpsUrl | host = "oauth2.googleapis.com", path = "/token" }
         , logoutEndpoint = Home { returnPath = "/logout/OAuthGoogle/callback" }
+        , allowLoginQueryParameters = False
         , clientId = clientId
         , clientSecret = clientSecret
         , scope = [ "openid email profile" ]
