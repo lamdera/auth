@@ -237,6 +237,7 @@ signOutRequested maybeUrlConfig callBackQueries model =
             Navigation.load <|
                 Url.toString model.authLogoutReturnUrlBase
                     ++ homeUrlConfig.returnPath
+                    ++ Url.Builder.toQuery callBackQueries
 
         Nothing ->
             Navigation.load <|
