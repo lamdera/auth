@@ -6,7 +6,6 @@ import Browser.Navigation as Navigation
 import Dict exposing (Dict)
 import Http
 import Json.Decode as Json
-import List.Extra as List
 import OAuth
 import OAuth.AuthorizationCode as OAuth
 import Process
@@ -108,6 +107,7 @@ generateSigninUrl : Url -> Auth.Common.State -> Auth.Common.ConfigurationOAuth f
 generateSigninUrl baseUrl state configuration =
     let
         queryAdjustedUrl =
+            -- google auth is an example where, at time of writing, query parameters are not allowed in a login redirect url
             if configuration.allowLoginQueryParameters then
                 baseUrl
 
