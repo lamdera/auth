@@ -49,11 +49,8 @@ init model methodId origin navigationKey toBackendFn =
             )
 
 
-onFrontendLogoutCallback navigationMsg toBackendFn =
-    Cmd.batch
-        [ toBackendFn AuthLogoutRequested
-        , navigationMsg
-        ]
+onFrontendLogoutCallback navigationMsg =
+    navigationMsg
 
 
 updateFromFrontend { asBackendMsg } clientId sessionId authToBackend model =
