@@ -13,7 +13,6 @@ import Process
 import Task exposing (Task)
 import Time
 import Url exposing (Protocol(..), Url)
-import Url.Builder
 
 
 type alias Config frontendMsg toBackend backendMsg toFrontend frontendModel backendModel =
@@ -38,7 +37,6 @@ type alias ConfigurationEmailMagicLink frontendMsg backendMsg frontendModel back
         SessionId
         -> ClientId
         -> backendModel
-        -> Bool
         -> { username : Maybe String }
         -> Time.Posix
         -> ( backendModel, Cmd backendMsg )
@@ -68,6 +66,7 @@ type alias ConfigurationOAuth frontendMsg backendMsg frontendModel backendModel 
     , authorizationEndpoint : Url
     , tokenEndpoint : Url
     , logoutEndpoint : LogoutEndpointConfig
+    , allowLoginQueryParameters : Bool
     , clientId : String
 
     -- @TODO this will force a leak out as frontend uses this config?

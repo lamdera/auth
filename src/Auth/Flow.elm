@@ -1,6 +1,6 @@
 module Auth.Flow exposing (..)
 
-import Auth.Common exposing (MethodId, ToBackend(..))
+import Auth.Common exposing (LogoutEndpointConfig(..), MethodId, ToBackend(..))
 import Auth.Method.EmailMagicLink
 import Auth.Method.OAuthGithub
 import Auth.Method.OAuthGoogle
@@ -15,6 +15,7 @@ import SHA1
 import Task
 import Time
 import Url exposing (Protocol(..), Url)
+import Url.Builder exposing (QueryParameter)
 
 
 init :
@@ -48,11 +49,8 @@ init model methodId origin navigationKey toBackendFn =
             )
 
 
-onFrontendLogoutCallback navigationMsg toBackendFn =
-    Cmd.batch
-        [ toBackendFn AuthLogoutRequested
-        , navigationMsg
-        ]
+onFrontendLogoutCallback navigationMsg =
+    navigationMsg
 
 
 updateFromFrontend { asBackendMsg } clientId sessionId authToBackend model =
@@ -127,7 +125,6 @@ type alias BackendUpdateConfig frontendMsg backendMsg toFrontend frontendModel b
         -> ( { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }, Cmd backendMsg )
     , renewSession : Auth.Common.SessionId -> Auth.Common.ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
     , logout : Auth.Common.SessionId -> Auth.Common.ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
-    , isDev : Bool
     }
 
 
@@ -140,7 +137,7 @@ backendUpdate :
         { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }
     -> Auth.Common.BackendMsg
     -> ( { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }, Cmd backendMsg )
-backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMethod, handleAuthSuccess, renewSession, logout, isDev } authBackendMsg =
+backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMethod, handleAuthSuccess, renewSession, logout } authBackendMsg =
     let
         authError str =
             asToFrontend (Auth.Common.AuthError (Auth.Common.ErrAuthString str))
@@ -162,10 +159,10 @@ backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMe
                 (\method ->
                     case method of
                         Auth.Common.ProtocolEmailMagicLink config ->
-                            config.initiateSignin sessionId clientId backendModel isDev { username = username } now
+                            config.initiateSignin sessionId clientId backendModel { username = username } now
 
                         Auth.Common.ProtocolOAuth config ->
-                            Auth.Protocol.OAuth.initiateSignin sessionId baseUrl isDev config asBackendMsg now backendModel
+                            Auth.Protocol.OAuth.initiateSignin sessionId baseUrl config asBackendMsg now backendModel
                 )
 
         Auth.Common.AuthSigninInitiatedDelayed_ sessionId initiateMsg ->
@@ -215,6 +212,34 @@ signInRequested :
 signInRequested methodId model username =
     ( { model | authFlow = Auth.Common.Requested methodId }
     , Auth.Common.AuthSigninInitiated { methodId = methodId, baseUrl = model.authRedirectBaseUrl, username = username }
+    )
+
+
+signOutRequested :
+    Maybe LogoutEndpointConfig
+    -> List QueryParameter
+    -> { a | authFlow : Auth.Common.Flow, authLogoutReturnUrlBase : Url }
+    -> ( { a | authFlow : Auth.Common.Flow, authLogoutReturnUrlBase : Url }, Cmd msg )
+signOutRequested maybeUrlConfig callBackQueries model =
+    ( { model | authFlow = Auth.Common.Idle }
+    , case maybeUrlConfig of
+        Just (Tenant urlConfig) ->
+            Navigation.load <|
+                Url.toString urlConfig.url
+                    ++ Url.toString model.authLogoutReturnUrlBase
+                    ++ urlConfig.returnPath
+                    ++ Url.Builder.toQuery callBackQueries
+
+        Just (Home homeUrlConfig) ->
+            Navigation.load <|
+                Url.toString model.authLogoutReturnUrlBase
+                    ++ homeUrlConfig.returnPath
+                    ++ Url.Builder.toQuery callBackQueries
+
+        Nothing ->
+            Navigation.load <|
+                Url.toString model.authLogoutReturnUrlBase
+                    ++ Url.Builder.toQuery callBackQueries
     )
 
 

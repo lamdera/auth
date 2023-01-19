@@ -41,6 +41,7 @@ configuration clientId clientSecret appTenant =
                     }
                 , returnPath = "/logout/OAuthAuth0/callback"
                 }
+        , allowLoginQueryParameters = True
         , clientId = clientId
         , clientSecret = clientSecret
         , scope = [ "openid email profile" ]

@@ -6,11 +6,11 @@ import Browser.Navigation as Navigation
 import Dict exposing (Dict)
 import Http
 import Json.Decode as Json
-import List.Extra as List
 import OAuth
 import OAuth.AuthorizationCode as OAuth
 import Process
 import SHA1
+import Share.Config exposing (isDev)
 import Task exposing (Task)
 import Time
 import Url exposing (Url)
@@ -70,7 +70,7 @@ accessTokenRequested model methodId code state =
     )
 
 
-initiateSignin sessionId baseUrl isDev config asBackendMsg now backendModel =
+initiateSignin sessionId baseUrl config asBackendMsg now backendModel =
     let
         signedState =
             SHA1.toBase64 <|
@@ -92,7 +92,8 @@ initiateSignin sessionId baseUrl isDev config asBackendMsg now backendModel =
     ( { backendModel
         | pendingAuths = backendModel.pendingAuths |> Dict.insert sessionId newPendingAuth
       }
-    , Auth.Common.sleepTask isDev
+    , Auth.Common.sleepTask
+        isDev
         (asBackendMsg
             (AuthSigninInitiatedDelayed_
                 sessionId
@@ -105,9 +106,17 @@ initiateSignin sessionId baseUrl isDev config asBackendMsg now backendModel =
 generateSigninUrl : Url -> Auth.Common.State -> Auth.Common.ConfigurationOAuth frontendMsg backendMsg frontendModel backendModel -> Url
 generateSigninUrl baseUrl state configuration =
     let
+        queryAdjustedUrl =
+            -- google auth is an example where, at time of writing, query parameters are not allowed in a login redirect url
+            if configuration.allowLoginQueryParameters then
+                baseUrl
+
+            else
+                { baseUrl | query = Nothing }
+
         authorization =
             { clientId = configuration.clientId
-            , redirectUri = baseUrl |> (\v -> { v | path = "/login/" ++ configuration.id ++ "/callback" })
+            , redirectUri = { queryAdjustedUrl | path = "/login/" ++ configuration.id ++ "/callback" }
             , scope = configuration.scope
             , state = Just state
             , url = configuration.authorizationEndpoint
