@@ -87,13 +87,18 @@ getUserInfoTask authenticationSuccess =
         , resolver =
             HttpHelpers.jsonResolver
                 (Json.succeed UserInfo
-                    |> required "name" Json.string
                     |> optional "email" Json.string ""
-                    |> optional "login" (Json.maybe Json.string) Nothing
+                    |> optional "name" decodeNonEmptyString Nothing
+                    |> optional "login" decodeNonEmptyString Nothing
                 )
         , timeout = Nothing
         }
         |> Task.mapError (HttpHelpers.httpErrorToString >> Auth.Common.ErrAuthString)
+
+
+decodeNonEmptyString : Json.Decoder (Maybe String)
+decodeNonEmptyString =
+    Json.string |> Json.map nothingIfEmpty
 
 
 type alias GithubEmail =

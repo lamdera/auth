@@ -109,8 +109,11 @@ getUserInfo authenticationSuccess =
         case stuff of
             Ok result ->
                 Task.succeed
-                    { name = result.given_name ++ " " ++ Maybe.withDefault "" result.family_name
-                    , email = result.email
+                    { email = result.email
+                    , name =
+                        [ result.given_name, Maybe.withDefault "" result.family_name ]
+                            |> String.join " "
+                            |> nothingIfEmpty
                     , username = Nothing
                     }
 

@@ -174,8 +174,8 @@ type alias AuthCode =
 
 
 type alias UserInfo =
-    { name : String
-    , email : String
+    { email : String
+    , name : Maybe String
     , username : Maybe String
     }
 
@@ -239,6 +239,18 @@ sleepTask isDev msg =
         Process.sleep 0
     )
         |> Task.perform (always msg)
+
+
+nothingIfEmpty s =
+    let
+        trimmed =
+            String.trim s
+    in
+    if trimmed == "" then
+        Nothing
+
+    else
+        Just trimmed
 
 
 
