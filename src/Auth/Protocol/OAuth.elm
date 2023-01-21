@@ -10,7 +10,6 @@ import OAuth
 import OAuth.AuthorizationCode as OAuth
 import Process
 import SHA1
-import Share.Config exposing (isDev)
 import Task exposing (Task)
 import Time
 import Url exposing (Url)
@@ -70,7 +69,7 @@ accessTokenRequested model methodId code state =
     )
 
 
-initiateSignin sessionId baseUrl config asBackendMsg now backendModel =
+initiateSignin isDev sessionId baseUrl config asBackendMsg now backendModel =
     let
         signedState =
             SHA1.toBase64 <|

@@ -74,7 +74,7 @@ fallbackGetEmailFromEmails authenticationSuccess userInfo =
                             HttpHelpers.customError
                                 "Could not retrieve an email from Github profile or emails list."
             )
-        |> Task.mapError (Auth.Common.ErrAuthString << HttpHelpers.httpErrorToString)
+        |> Task.mapError (HttpHelpers.httpErrorToString >> Auth.Common.ErrAuthString)
 
 
 getUserInfoTask : OAuth.AuthenticationSuccess -> Task Auth.Common.Error UserInfo
@@ -93,7 +93,7 @@ getUserInfoTask authenticationSuccess =
                 )
         , timeout = Nothing
         }
-        |> Task.mapError (Auth.Common.ErrAuthString << HttpHelpers.httpErrorToString)
+        |> Task.mapError (HttpHelpers.httpErrorToString >> Auth.Common.ErrAuthString)
 
 
 type alias GithubEmail =
