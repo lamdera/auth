@@ -114,7 +114,7 @@ type alias BackendUpdateConfig frontendMsg backendMsg toFrontend frontendModel b
     , asBackendMsg : Auth.Common.BackendMsg -> backendMsg
     , sendToFrontend : Auth.Common.SessionId -> toFrontend -> Cmd backendMsg
     , backendModel : { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }
-    , loadMethod : Auth.Common.MethodId -> Maybe (Auth.Common.Configuration frontendMsg backendMsg frontendModel backendModel)
+    , loadMethod : Auth.Common.MethodId -> Maybe (Auth.Common.Method frontendMsg backendMsg frontendModel backendModel)
     , handleAuthSuccess :
         Auth.Common.SessionId
         -> Auth.Common.ClientId
@@ -296,7 +296,7 @@ withCurrentTime fn =
     Time.now |> Task.perform fn
 
 
-methodLoader : List (Auth.Common.Configuration frontendMsg backendMsg frontendModel backendModel) -> Auth.Common.MethodId -> Maybe (Auth.Common.Configuration frontendMsg backendMsg frontendModel backendModel)
+methodLoader : List (Auth.Common.Method frontendMsg backendMsg frontendModel backendModel) -> Auth.Common.MethodId -> Maybe (Auth.Common.Method frontendMsg backendMsg frontendModel backendModel)
 methodLoader methods methodId =
     methods
         |> List.find
@@ -313,6 +313,6 @@ methodLoader methods methodId =
 findMethod :
     Auth.Common.MethodId
     -> Auth.Common.Config frontendMsg toBackend backendMsg toFrontend frontendModel backendModel
-    -> Maybe (Auth.Common.Configuration frontendMsg backendMsg frontendModel backendModel)
+    -> Maybe (Auth.Common.Method frontendMsg backendMsg frontendModel backendModel)
 findMethod methodId config =
     methodLoader config.methods methodId

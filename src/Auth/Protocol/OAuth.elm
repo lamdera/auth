@@ -75,6 +75,7 @@ initiateSignin isDev sessionId baseUrl config asBackendMsg now backendModel =
             SHA1.toBase64 <|
                 SHA1.fromString <|
                     (String.fromInt <| Time.posixToMillis <| now)
+                        -- @TODO this needs to be user-injected config
                         ++ "0x3vd7a"
                         ++ sessionId
 

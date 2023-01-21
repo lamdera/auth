@@ -21,12 +21,12 @@ type alias Config frontendMsg toBackend backendMsg toFrontend frontendModel back
     , backendMsg : BackendMsg -> backendMsg
     , sendToFrontend : SessionId -> toFrontend -> Cmd backendMsg
     , sendToBackend : toBackend -> Cmd frontendMsg
-    , methods : List (Configuration frontendMsg backendMsg frontendModel backendModel)
+    , methods : List (Method frontendMsg backendMsg frontendModel backendModel)
     , renewSession : SessionId -> ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
     }
 
 
-type Configuration frontendMsg backendMsg frontendModel backendModel
+type Method frontendMsg backendMsg frontendModel backendModel
     = ProtocolOAuth (ConfigurationOAuth frontendMsg backendMsg frontendModel backendModel)
     | ProtocolEmailMagicLink (ConfigurationEmailMagicLink frontendMsg backendMsg frontendModel backendModel)
 

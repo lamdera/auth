@@ -38,7 +38,7 @@ configuration :
         -> ( backendModel, Cmd backendMsg )
     }
     ->
-        Configuration
+        Method
             frontendMsg
             backendMsg
             { frontendModel | authFlow : Flow, authRedirectBaseUrl : Url }

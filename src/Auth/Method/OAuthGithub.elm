@@ -22,7 +22,7 @@ configuration :
     String
     -> String
     ->
-        Configuration
+        Method
             frontendMsg
             backendMsg
             { frontendModel | authFlow : Flow, authRedirectBaseUrl : Url }
