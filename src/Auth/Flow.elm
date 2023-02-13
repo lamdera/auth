@@ -35,6 +35,9 @@ init model methodId origin navigationKey toBackendFn =
         "OAuthGoogle" ->
             Auth.Protocol.OAuth.onFrontendCallbackInit model methodId origin navigationKey toBackendFn
 
+        "OAuthShopify" ->
+            Auth.Protocol.OAuth.onFrontendCallbackInit model methodId origin navigationKey toBackendFn
+
         "OAuthAuth0" ->
             Auth.Protocol.OAuth.onFrontendCallbackInit model methodId origin navigationKey toBackendFn
 
@@ -256,8 +259,8 @@ errorToString error =
         Auth.Common.ErrAuthentication authenticationError ->
             "ErrAuthentication"
 
-        Auth.Common.ErrHTTPGetAccessToken ->
-            "ErrHTTPGetAccessToken"
+        Auth.Common.ErrHTTPGetAccessToken str ->
+            "ErrHTTPGetAccessToken " ++ str
 
         Auth.Common.ErrHTTPGetUserInfo ->
             "ErrHTTPGetUserInfo"

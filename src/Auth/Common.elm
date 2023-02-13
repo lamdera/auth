@@ -156,7 +156,7 @@ type Error
     = ErrStateMismatch
     | ErrAuthorization OAuth.AuthorizationError
     | ErrAuthentication OAuth.AuthenticationError
-    | ErrHTTPGetAccessToken
+    | ErrHTTPGetAccessToken String
     | ErrHTTPGetUserInfo
       -- Lazy string error until we classify everything nicely
     | ErrAuthString String

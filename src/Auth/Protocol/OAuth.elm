@@ -6,6 +6,7 @@ import Browser.Navigation as Navigation
 import Dict exposing (Dict)
 import Http
 import Json.Decode as Json
+import Json.Decode.Pipeline exposing (..)
 import List.Extra as List
 import OAuth
 import OAuth.AuthorizationCode as OAuth
@@ -167,11 +168,41 @@ validateCallbackToken clientId clientSecret tokenEndpoint redirectUri code =
     , headers = req.headers ++ [ Http.header "Accept" "application/json" ]
     , url = req.url
     , body = req.body
-    , resolver = HttpHelpers.jsonResolver OAuth.defaultAuthenticationSuccessDecoder
+    , resolver = HttpHelpers.jsonResolver authenticationSuccessDecoder
     , timeout = req.timeout
     }
         |> Http.task
         |> Task.mapError parseAuthenticationResponseError
+
+
+authenticationSuccessDecoder =
+    -- The default decoder requires a token_type of 'bearer', but some OAuth imlementations (Shopify) don't have this
+    -- OAuth.defaultAuthenticationSuccessDecoder
+    Json.map5 OAuth.AuthenticationSuccess
+        -- OAuth.defaultTokenDecoder
+        tokenDecoder
+        OAuth.defaultRefreshTokenDecoder
+        OAuth.defaultExpiresInDecoder
+        OAuth.defaultScopeDecoder
+        idJwtDecoder
+
+
+idJwtDecoder =
+    Json.maybe <| Json.field "id_token" Json.string
+
+
+tokenDecoder =
+    Json.andThen (decoderFromJust "missing or invalid 'access_token' / 'token_type'") <|
+        (Json.succeed OAuth.makeToken
+            -- @TODO this is a bit dumb, need to add another type other than Bearer?
+            |> optional "token_type" (Json.maybe Json.string) (Just "bearer")
+            |> optional "access_token" (Json.maybe Json.string) Nothing
+        )
+
+
+decoderFromJust : String -> Maybe a -> Json.Decoder a
+decoderFromJust msg =
+    Maybe.map Json.succeed >> Maybe.withDefault (Json.fail msg)
 
 
 parseAuthenticationResponse : Result Http.Error OAuth.AuthenticationSuccess -> Result Auth.Common.Error OAuth.AuthenticationSuccess
@@ -183,10 +214,10 @@ parseAuthenticationResponse res =
                     Err <| Auth.Common.ErrAuthentication error
 
                 _ ->
-                    Err Auth.Common.ErrHTTPGetAccessToken
+                    Err <| Auth.Common.ErrHTTPGetAccessToken body
 
-        Err _ ->
-            Err Auth.Common.ErrHTTPGetAccessToken
+        Err httpErr ->
+            Err <| Auth.Common.ErrHTTPGetAccessToken (HttpHelpers.httpErrorToString httpErr)
 
         Ok authenticationSuccess ->
             Ok authenticationSuccess
@@ -201,10 +232,10 @@ parseAuthenticationResponseError httpErr =
                     Auth.Common.ErrAuthentication error
 
                 _ ->
-                    Auth.Common.ErrHTTPGetAccessToken
+                    Auth.Common.ErrHTTPGetAccessToken (HttpHelpers.httpErrorToString httpErr)
 
         _ ->
-            Auth.Common.ErrHTTPGetAccessToken
+            Auth.Common.ErrHTTPGetAccessToken (HttpHelpers.httpErrorToString httpErr)
 
 
 makeToken : Auth.Common.MethodId -> OAuth.AuthenticationSuccess -> Time.Posix -> Auth.Common.Token
