@@ -58,7 +58,7 @@ onFrontendLogoutCallback navigationMsg toBackendFn =
         ]
 
 
-updateFromFrontend { asBackendMsg } clientId sessionId authToBackend model =
+updateFromFrontend { asBackendMsg } sessionId clientId authToBackend model =
     case authToBackend of
         Auth.Common.AuthSigninInitiated params ->
             ( model

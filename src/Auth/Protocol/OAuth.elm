@@ -181,7 +181,7 @@ authenticationSuccessDecoder =
     Json.map5 OAuth.AuthenticationSuccess
         -- OAuth.defaultTokenDecoder
         tokenDecoder
-        OAuth.defaultRefreshTokenDecoder
+        refreshTokenDecoder
         OAuth.defaultExpiresInDecoder
         OAuth.defaultScopeDecoder
         idJwtDecoder
@@ -192,12 +192,22 @@ idJwtDecoder =
 
 
 tokenDecoder =
-    Json.andThen (decoderFromJust "missing or invalid 'access_token' / 'token_type'") <|
-        (Json.succeed OAuth.makeToken
-            -- @TODO this is a bit dumb, need to add another type other than Bearer?
-            |> optional "token_type" (Json.maybe Json.string) (Just "bearer")
-            |> optional "access_token" (Json.maybe Json.string) Nothing
-        )
+    (Json.succeed OAuth.makeToken
+        -- @TODO this is a bit dumb, need to add another type other than Bearer?
+        |> optional "token_type" (Json.maybe Json.string) (Just "bearer")
+        |> optional "access_token" (Json.maybe Json.string) Nothing
+    )
+        |> Json.andThen (decoderFromJust "missing or invalid 'access_token'")
+
+
+refreshTokenDecoder : Json.Decoder (Maybe OAuth.Token)
+refreshTokenDecoder =
+    (Json.succeed OAuth.makeRefreshToken
+        -- @TODO this is a bit dumb, need to add another type other than Bearer?
+        |> optional "token_type" Json.string "bearer"
+        |> optional "refresh_token" (Json.maybe Json.string) Nothing
+    )
+        |> Json.andThen (decoderFromJust "missing or invalid 'refresh_token'")
 
 
 decoderFromJust : String -> Maybe a -> Json.Decoder a
