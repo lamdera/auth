@@ -1,11 +1,13 @@
 # Lamdera Auth
 
-This library is a work in progress!
+This library is a work in progress! We hope to clean up the API some more before a formal release.
 
-### Example implementation
+It is however entirely functional, and being used in a number of production Lamdera apps, including the entire login mechanism for [https://dashboard.lamdera.app/](https://dashboard.lamdera.app/docs/wire).
 
-You can see a draft implementation of [lamdera/auth replacing a fake user/pass auth with a real Github Auth on the Lamdera Realword repo](https://github.com/supermario/lamdera-realworld/compare/lamdera-explore-auth-draft).
+### Example implementations
 
+- You can see a draft implementation of [lamdera/auth replacing a fake user/pass auth with a real Github Auth on the Lamdera Realword repo](https://github.com/supermario/lamdera-realworld/compare/lamdera-explore-auth-draft).
+- There's also a vanilla Lamdera app example thanks to @vpjapp: [https://github.com/vpjapp/lamdera-auth-example](https://github.com/vpjapp/lamdera-auth-example)
 
 ### Progress
 
