@@ -68,8 +68,6 @@ type alias ConfigurationOAuth frontendMsg backendMsg frontendModel backendModel 
     , logoutEndpoint : LogoutEndpointConfig
     , allowLoginQueryParameters : Bool
     , clientId : String
-
-    -- @TODO this will force a leak out as frontend uses this config?
     , clientSecret : String
     , scope : List String
     , getUserInfo : OAuth.AuthenticationSuccess -> Task Error UserInfo
