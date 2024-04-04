@@ -120,7 +120,7 @@ import Auth.Common
 
 type FrontendMsg
     ...
-    | AuthFrontendMsg Auth.Common.FrontendMsg
+    | AuthSigninRequested { methodId : Auth.Common.MethodId, username : Maybe String }
 
 type ToBackend
     ...
@@ -142,13 +142,14 @@ type ToFrontend
 ```elm
 update msg model =
   ...
-    AuthFrontendMsg authMsg ->
-      Auth.Flow.frontendMsg authMsg
+    AuthSigninRequested { methodId, username } ->
+      Auth.Flow.signInRequested methodId model username
+          |> Tuple.mapSecond (AuthToBackend >> sendToBackend)
 
 updateFromBackend msg model =
   ...
-    AuthToFrontend authMsg ->
-      Auth.Flow.fromBackend authMsg
+    AuthToFrontend authToFrontendMsg ->
+      Auth.updateFromBackend authToFrontendMsg model
 ```
 
 `Backend.elm`:
@@ -156,15 +157,41 @@ updateFromBackend msg model =
 ```elm
 update msg model =
   ...
-    AuthBackendMsg authMsg ->
-      Auth.Flow.backendMsg authMsg
+     AuthBackendMsg authMsg ->
+         Auth.Flow.backendUpdate (Auth.backendConfig model) authMsg
 
 updateFromFrontend sessionId clientId msg model =
   ...
-    AuthToBackend authMsg ->
-      Auth.Flow.fromFrontend authMsg
+    AuthToBackend authToBackend ->
+      Auth.Flow.updateFromFrontend (Auth.backendConfig model) clientId sessionId authToBackend model
+
 ```
 
 5. Adjust your routing handlers:
 
-TBC
+How you do page routing will vary on your app approach (i.e. manual, elm-land, etc), but here's an example route matcher using `elm/url:Url.Parser`:
+
+```elm
+map LoginCallback (s "login" </> string </> s "callback")
+```
+
+Add the additional Msg variant to your FrontendMsg:
+
+```elm
+type FrontendMsg =
+  ...
+  | LoginCallback String
+```
+
+And add the handler to your update function:
+
+```elm
+update msg model =
+  ...
+  LoginCallback methodId ->
+    Auth.Flow.init model
+      methodId
+      url
+      key
+      (\msg -> Lamdera.sendToBackend (AuthToBackend msg))
+```
