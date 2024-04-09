@@ -74,6 +74,7 @@ import Auth.Common
 import Auth.Method.EmailMagicLink
 import Auth.Method.OAuthGithub
 import Auth.Method.OAuthGoogle
+import Lamdera
 import Types exposing (..)
 
 
