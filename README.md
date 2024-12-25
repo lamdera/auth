@@ -93,7 +93,7 @@ config =
 
 ```elm
 import Auth.Common
-import AssocList as Dict exposing (Dict)
+import SeqDict as Dict exposing (Dict)
 import Lamdera
 import Url exposing (Url)
 
