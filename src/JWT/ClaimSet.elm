@@ -1,10 +1,10 @@
 module JWT.ClaimSet exposing (ClaimSet, VerificationError(..), VerifyOptions, decoder, encoder, isValid)
 
+import Effect.Time exposing (Posix)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline exposing (custom, optional)
 import Json.Encode as Encode
 import SeqDict as Dict exposing (SeqDict)
-import Time exposing (Posix)
 
 
 type alias ClaimSet =
@@ -76,7 +76,7 @@ type alias VerifyOptions =
     }
 
 
-isValid : VerifyOptions -> Posix -> ClaimSet -> Result VerificationError Bool
+isValid : VerifyOptions -> Effect.Time.Posix -> ClaimSet -> Result VerificationError Bool
 isValid options now claims =
     checkIssuer claims.iss options.issuer
         |> Result.andThen
@@ -149,42 +149,42 @@ checkID claim option =
                 Err InvalidJWTID
 
 
-checkExpiration : Posix -> Int -> Maybe Int -> Result VerificationError Bool
+checkExpiration : Effect.Time.Posix -> Int -> Maybe Int -> Result VerificationError Bool
 checkExpiration now leeway claim =
     case claim of
         Nothing ->
             Ok True
 
         Just expiration ->
-            if Time.posixToMillis now - leeway < expiration * 1000 then
+            if Effect.Time.posixToMillis now - leeway < expiration * 1000 then
                 Ok True
 
             else
                 Err Expired
 
 
-checkNotBefore : Posix -> Int -> Maybe Int -> Result VerificationError Bool
+checkNotBefore : Effect.Time.Posix -> Int -> Maybe Int -> Result VerificationError Bool
 checkNotBefore now leeway claim =
     case claim of
         Nothing ->
             Ok True
 
         Just nbf ->
-            if Time.posixToMillis now + leeway > nbf * 1000 then
+            if Effect.Time.posixToMillis now + leeway > nbf * 1000 then
                 Ok True
 
             else
                 Err NotYetValid
 
 
-checkIssuedAt : Posix -> Int -> Maybe Int -> Result VerificationError Bool
+checkIssuedAt : Effect.Time.Posix -> Int -> Maybe Int -> Result VerificationError Bool
 checkIssuedAt now leeway claim =
     case claim of
         Nothing ->
             Ok True
 
         Just iat ->
-            if Time.posixToMillis now + leeway > iat * 1000 then
+            if Effect.Time.posixToMillis now + leeway > iat * 1000 then
                 Ok True
 
             else

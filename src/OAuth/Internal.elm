@@ -39,7 +39,7 @@ module OAuth.Internal exposing
 
 import Base64.Encode as Base64
 import Dict exposing (Dict)
-import Http
+import Effect.Http
 import Json.Decode as Json
 import OAuth exposing (..)
 import Url exposing (Protocol(..), Url)
@@ -294,23 +294,23 @@ makeAuthorizationUrl responseType extraFields { clientId, url, redirectUri, scop
             { url | query = Just (baseQuery ++ "&" ++ query) }
 
 
-makeRequest : Json.Decoder success -> (Result Http.Error success -> msg) -> Url -> List Http.Header -> String -> RequestParts msg
+makeRequest : Json.Decoder success -> (Result Effect.Http.Error success -> msg) -> Url -> List Effect.Http.Header -> String -> RequestParts msg
 makeRequest decoder toMsg url headers body =
     { method = "POST"
     , headers = headers
     , url = Url.toString url
-    , body = Http.stringBody "application/x-www-form-urlencoded" body
-    , expect = Http.expectJson toMsg decoder
+    , body = Effect.Http.stringBody "application/x-www-form-urlencoded" body
+    , expect = Effect.Http.expectJson toMsg decoder
     , timeout = Nothing
     , tracker = Nothing
     }
 
 
-makeHeaders : Maybe { clientId : String, secret : String } -> List Http.Header
+makeHeaders : Maybe { clientId : String, secret : String } -> List Effect.Http.Header
 makeHeaders credentials =
     credentials
         |> Maybe.map (\{ clientId, secret } -> Base64.encode <| Base64.string <| (clientId ++ ":" ++ secret))
-        |> Maybe.map (\s -> [ Http.header "Authorization" ("Basic " ++ s) ])
+        |> Maybe.map (\s -> [ Effect.Http.header "Authorization" ("Basic " ++ s) ])
         |> Maybe.withDefault []
 
 
@@ -371,10 +371,10 @@ extractTokenString =
 
 type alias RequestParts a =
     { method : String
-    , headers : List Http.Header
+    , headers : List Effect.Http.Header
     , url : String
-    , body : Http.Body
-    , expect : Http.Expect a
+    , body : Effect.Http.Body
+    , expect : Effect.Http.Expect a
     , timeout : Maybe Float
     , tracker : Maybe String
     }

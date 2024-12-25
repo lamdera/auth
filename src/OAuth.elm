@@ -62,8 +62,8 @@ The following section can be ignored if you're dealing with a very generic OAuth
 
 -}
 
+import Effect.Http
 import Extra.Maybe as Maybe
-import Http
 
 
 
@@ -98,9 +98,9 @@ type alias TokenString =
 
 {-| Use a token to authenticate a request.
 -}
-useToken : Token -> List Http.Header -> List Http.Header
+useToken : Token -> List Effect.Http.Header -> List Effect.Http.Header
 useToken token =
-    (::) (Http.header "Authorization" (tokenToString token))
+    (::) (Effect.Http.header "Authorization" (tokenToString token))
 
 
 {-| Create a token from two string representing a token type and

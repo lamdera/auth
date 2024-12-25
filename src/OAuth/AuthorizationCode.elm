@@ -103,7 +103,7 @@ request.
 -}
 
 import Dict exposing (Dict)
-import Http
+import Effect.Http
 import Json.Decode as Json
 import OAuth exposing (ErrorCode, GrantType(..), ResponseType(..), Token, errorCodeFromString, grantTypeToString)
 import OAuth.Internal as Internal exposing (..)
@@ -331,10 +331,10 @@ in order to create a new request and may be adjusted at will.
 -}
 type alias RequestParts a =
     { method : String
-    , headers : List Http.Header
+    , headers : List Effect.Http.Header
     , url : String
-    , body : Http.Body
-    , expect : Http.Expect a
+    , body : Effect.Http.Body
+    , expect : Effect.Http.Expect a
     , timeout : Maybe Float
     , tracker : Maybe String
     }
@@ -362,7 +362,7 @@ type alias Credentials =
         req = makeTokenRequest toMsg authentication |> Http.request
 
 -}
-makeTokenRequest : (Result Http.Error AuthenticationSuccess -> msg) -> Authentication -> RequestParts msg
+makeTokenRequest : (Result Effect.Http.Error AuthenticationSuccess -> msg) -> Authentication -> RequestParts msg
 makeTokenRequest =
     makeTokenRequestWith AuthorizationCode defaultAuthenticationSuccessDecoder Dict.empty
 
@@ -413,7 +413,7 @@ type and extra fields to be set on the query.
             Dict.empty
 
 -}
-makeTokenRequestWith : GrantType -> Json.Decoder success -> Dict String String -> (Result Http.Error success -> msg) -> Authentication -> RequestParts msg
+makeTokenRequestWith : GrantType -> Json.Decoder success -> Dict String String -> (Result Effect.Http.Error success -> msg) -> Authentication -> RequestParts msg
 makeTokenRequestWith grantType decoder extraFields toMsg { credentials, code, url, redirectUri } =
     let
         body =

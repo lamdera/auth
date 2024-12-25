@@ -1,19 +1,13 @@
 module Auth.Method.EmailMagicLink exposing (..)
 
 import Auth.Common exposing (..)
-import Base64.Encode as Base64
-import Bytes exposing (Bytes)
-import Bytes.Encode as Bytes
-import Http
-import Json.Decode as Json
-import List.Extra as List
-import OAuth
-import OAuth.AuthorizationCode as OAuth
-import SeqDict as Dict exposing (SeqDict)
-import Task exposing (Task)
-import Time
+import Effect.Browser.Navigation
+import Effect.Command as Command exposing (BackendOnly, Command)
+import Effect.Lamdera exposing (ClientId, SessionId)
+import Effect.Task
+import Effect.Time
+import SeqDict exposing (SeqDict)
 import Url exposing (Protocol(..), Url)
-import Url.Builder
 import Url.Parser exposing ((</>), (<?>))
 import Url.Parser.Query as Query
 
@@ -22,38 +16,47 @@ configuration :
     { initiateSignin :
         SessionId
         -> ClientId
-        -> backendModel
+        -> { backendModel | pendingAuths : SeqDict SessionId PendingAuth }
         -> { username : Maybe String }
-        -> Time.Posix
-        -> ( backendModel, Cmd backendMsg )
+        -> Effect.Time.Posix
+        -> ( { backendModel | pendingAuths : SeqDict SessionId PendingAuth }, Command BackendOnly toMsg backendMsg )
     , onAuthCallbackReceived :
         SessionId
         -> ClientId
         -> Url
         -> AuthCode
         -> State
-        -> Time.Posix
+        -> Effect.Time.Posix
         -> (BackendMsg -> backendMsg)
-        -> backendModel
-        -> ( backendModel, Cmd backendMsg )
+        -> { backendModel | pendingAuths : SeqDict SessionId PendingAuth }
+        -> ( { backendModel | pendingAuths : SeqDict SessionId PendingAuth }, Command BackendOnly toMsg backendMsg )
     }
     ->
         Method
             frontendMsg
             backendMsg
             { frontendModel | authFlow : Flow, authRedirectBaseUrl : Url }
-            backendModel
+            { backendModel | pendingAuths : SeqDict SessionId PendingAuth }
+            BackendOnly
+            toMsg
 configuration { initiateSignin, onAuthCallbackReceived } =
     ProtocolEmailMagicLink
         { id = "EmailMagicLink"
         , initiateSignin = initiateSignin
         , onFrontendCallbackInit = onFrontendCallbackInit
         , onAuthCallbackReceived = onAuthCallbackReceived
-        , placeholder = \frontendMsg backendMsg frontendModel backendModel -> ()
+        , placeholder = \_ _ _ _ -> ()
         }
 
 
-onFrontendCallbackInit frontendModel methodId origin key toBackend =
+onFrontendCallbackInit :
+    { frontendModel | authFlow : Auth.Common.Flow }
+    -> MethodId
+    -> Url
+    -> Effect.Browser.Navigation.Key
+    -> (ToBackend -> Command restriction toMsg frontendMsg)
+    -> ( { frontendModel | authFlow : Auth.Common.Flow }, Command restriction toMsg frontendMsg )
+onFrontendCallbackInit frontendModel methodId origin _ toBackend =
     case origin |> Url.Parser.parse (callbackUrl methodId <?> queryParams) of
         Just ( Just token, Just email ) ->
             ( { frontendModel | authFlow = Auth.Common.Pending }
@@ -62,12 +65,12 @@ onFrontendCallbackInit frontendModel methodId origin key toBackend =
 
         _ ->
             ( { frontendModel | authFlow = Errored <| ErrAuthString "Missing token and/or email parameters. Please try again." }
-            , Cmd.none
+            , Command.none
             )
 
 
 trigger msg =
-    Time.now |> Task.perform (always msg)
+    Effect.Time.now |> Effect.Task.perform (always msg)
 
 
 callbackUrl methodId =

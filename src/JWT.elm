@@ -17,10 +17,10 @@ module JWT exposing
 
 -}
 
+import Effect.Task exposing (Task)
+import Effect.Time exposing (Posix)
 import JWT.ClaimSet exposing (VerifyOptions)
 import JWT.JWS as JWS
-import Task exposing (Task)
-import Time exposing (Posix)
 
 
 {-| A JSON Web Token.
@@ -67,7 +67,7 @@ type VerificationError
 
 {-| Check if the token is valid.
 -}
-isValid : VerifyOptions -> String -> Posix -> JWT -> Result VerificationError Bool
+isValid : VerifyOptions -> String -> Effect.Time.Posix -> JWT -> Result VerificationError Bool
 isValid options key now token =
     case token of
         JWS token_ ->
@@ -77,7 +77,7 @@ isValid options key now token =
 
 {-| A task to check if the token is valid.
 -}
-validate : VerifyOptions -> String -> JWT -> Task Never (Result VerificationError Bool)
+validate : VerifyOptions -> String -> JWT -> Effect.Task.Task restriction Never (Result VerificationError Bool)
 validate options key token =
-    Time.now
-        |> Task.andThen ((\now -> isValid options key now token) >> Task.succeed)
+    Effect.Time.now
+        |> Effect.Task.andThen ((\now -> isValid options key now token) >> Effect.Task.succeed)
