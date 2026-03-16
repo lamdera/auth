@@ -1,19 +1,19 @@
 module Auth.Method.OAuthGoogle exposing (..)
 
-import Auth.Common exposing (..)
+import Auth.Common exposing (Flow, LogoutEndpointConfig(..), Method(..), UserInfo, defaultHttpsUrl)
 import Auth.HttpHelpers as HttpHelpers
 import Auth.Protocol.OAuth
 import Base64.Encode as Base64
 import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
 import Dict exposing (Dict)
-import Http
+import Effect.Http as Http
+import Effect.Task as Task exposing (Task)
 import JWT exposing (..)
 import JWT.JWS as JWS
 import Json.Decode as Json
 import OAuth
 import OAuth.AuthorizationCode as OAuth
-import Task exposing (Task)
 import Url exposing (Protocol(..), Url)
 import Url.Builder
 
@@ -24,7 +24,9 @@ configuration :
     ->
         Method
             frontendMsg
+            Auth.Common.ToBackend
             backendMsg
+            toFrontend
             { frontendModel | authFlow : Flow, authRedirectBaseUrl : Url }
             backendModel
 configuration clientId clientSecret =
@@ -45,9 +47,7 @@ configuration clientId clientSecret =
         }
 
 
-getUserInfo :
-    OAuth.AuthenticationSuccess
-    -> Task Auth.Common.Error UserInfo
+getUserInfo : OAuth.AuthenticationSuccess -> Task r Auth.Common.Error UserInfo
 getUserInfo authenticationSuccess =
     let
         extract : String -> Json.Decoder a -> Dict String Json.Value -> Result String a
@@ -113,7 +113,7 @@ getUserInfo authenticationSuccess =
                     , name =
                         [ result.given_name, Maybe.withDefault "" result.family_name ]
                             |> String.join " "
-                            |> nothingIfEmpty
+                            |> Auth.Common.nothingIfEmpty
                     , username = Nothing
                     }
 

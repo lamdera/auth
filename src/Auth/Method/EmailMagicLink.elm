@@ -1,19 +1,11 @@
 module Auth.Method.EmailMagicLink exposing (..)
 
 import Auth.Common exposing (..)
-import Base64.Encode as Base64
-import Bytes exposing (Bytes)
-import Bytes.Encode as Bytes
-import Dict exposing (Dict)
-import Http
-import Json.Decode as Json
-import List.Extra as List
-import OAuth
-import OAuth.AuthorizationCode as OAuth
-import Task exposing (Task)
-import Time
+import Effect.Command as Command exposing (BackendOnly, Command)
+import Effect.Lamdera exposing (ClientId, SessionId)
+import Effect.Task as Task exposing (Task)
+import Effect.Time as Time
 import Url exposing (Protocol(..), Url)
-import Url.Builder
 import Url.Parser exposing ((</>), (<?>))
 import Url.Parser.Query as Query
 
@@ -25,7 +17,7 @@ configuration :
         -> backendModel
         -> { username : Maybe String }
         -> Time.Posix
-        -> ( backendModel, Cmd backendMsg )
+        -> ( backendModel, Command BackendOnly toFrontend backendMsg )
     , onAuthCallbackReceived :
         SessionId
         -> ClientId
@@ -35,12 +27,14 @@ configuration :
         -> Time.Posix
         -> (BackendMsg -> backendMsg)
         -> backendModel
-        -> ( backendModel, Cmd backendMsg )
+        -> ( backendModel, Command BackendOnly toFrontend backendMsg )
     }
     ->
         Method
             frontendMsg
+            toBackend
             backendMsg
+            toFrontend
             { frontendModel | authFlow : Flow, authRedirectBaseUrl : Url }
             backendModel
 configuration { initiateSignin, onAuthCallbackReceived } =
@@ -62,7 +56,7 @@ onFrontendCallbackInit frontendModel methodId origin key toBackend =
 
         _ ->
             ( { frontendModel | authFlow = Errored <| ErrAuthString "Missing token and/or email parameters. Please try again." }
-            , Cmd.none
+            , Command.none
             )
 
 

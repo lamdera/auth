@@ -38,8 +38,9 @@ module OAuth.Internal exposing
     )
 
 import Base64.Encode as Base64
-import Dict as Dict exposing (Dict)
-import Http
+import Dict exposing (Dict)
+import Duration exposing (Duration)
+import Effect.Http as Http
 import Json.Decode as Json
 import OAuth exposing (..)
 import Url exposing (Protocol(..), Url)
@@ -375,7 +376,7 @@ type alias RequestParts a =
     , url : String
     , body : Http.Body
     , expect : Http.Expect a
-    , timeout : Maybe Float
+    , timeout : Maybe Duration
     , tracker : Maybe String
     }
 

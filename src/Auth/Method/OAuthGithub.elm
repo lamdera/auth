@@ -3,19 +3,14 @@ module Auth.Method.OAuthGithub exposing (..)
 import Auth.Common exposing (..)
 import Auth.HttpHelpers as HttpHelpers
 import Auth.Protocol.OAuth
-import Base64.Encode as Base64
-import Browser.Navigation as Navigation
-import Bytes exposing (Bytes)
-import Bytes.Encode as Bytes
-import Http
+import Effect.Http as Http
+import Effect.Task as Task exposing (Task)
 import Json.Decode as Json
 import Json.Decode.Pipeline exposing (..)
 import List.Extra as List
 import OAuth
 import OAuth.AuthorizationCode as OAuth
-import Task exposing (Task)
 import Url exposing (Protocol(..), Url)
-import Url.Builder
 
 
 configuration :
@@ -24,7 +19,9 @@ configuration :
     ->
         Method
             frontendMsg
+            ToBackend
             backendMsg
+            toFrontend
             { frontendModel | authFlow : Flow, authRedirectBaseUrl : Url }
             backendModel
 configuration clientId clientSecret =
@@ -47,7 +44,7 @@ configuration clientId clientSecret =
 
 getUserInfo :
     OAuth.AuthenticationSuccess
-    -> Task Auth.Common.Error UserInfo
+    -> Task r Auth.Common.Error UserInfo
 getUserInfo authenticationSuccess =
     getUserInfoTask authenticationSuccess
         |> Task.andThen
@@ -60,7 +57,7 @@ getUserInfo authenticationSuccess =
             )
 
 
-fallbackGetEmailFromEmails : OAuth.AuthenticationSuccess -> UserInfo -> Task Auth.Common.Error UserInfo
+fallbackGetEmailFromEmails : OAuth.AuthenticationSuccess -> UserInfo -> Task r Auth.Common.Error UserInfo
 fallbackGetEmailFromEmails authenticationSuccess userInfo =
     getUserEmailsTask authenticationSuccess
         |> Task.andThen
@@ -77,7 +74,7 @@ fallbackGetEmailFromEmails authenticationSuccess userInfo =
         |> Task.mapError (HttpHelpers.httpErrorToString >> Auth.Common.ErrAuthString)
 
 
-getUserInfoTask : OAuth.AuthenticationSuccess -> Task Auth.Common.Error UserInfo
+getUserInfoTask : OAuth.AuthenticationSuccess -> Task r Auth.Common.Error UserInfo
 getUserInfoTask authenticationSuccess =
     Http.task
         { method = "GET"
@@ -105,7 +102,7 @@ type alias GithubEmail =
     { primary : Bool, email : String }
 
 
-getUserEmailsTask : OAuth.AuthenticationSuccess -> Task Http.Error (List GithubEmail)
+getUserEmailsTask : OAuth.AuthenticationSuccess -> Task r Http.Error (List GithubEmail)
 getUserEmailsTask authenticationSuccess =
     Http.task
         { method = "GET"

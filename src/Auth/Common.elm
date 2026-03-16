@@ -1,17 +1,17 @@
 module Auth.Common exposing (..)
 
 import Base64.Encode as Base64
-import Browser.Navigation exposing (Key)
 import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
-import Dict exposing (Dict)
-import Http
-import Json.Decode as Json
+import Duration
+import Effect.Browser.Navigation exposing (Key)
+import Effect.Command exposing (BackendOnly, Command, FrontendOnly)
+import Effect.Lamdera exposing (ClientId, SessionId)
+import Effect.Process as Process
+import Effect.Task as Task exposing (Task)
+import Effect.Time as Time
 import OAuth
 import OAuth.AuthorizationCode as OAuth
-import Process
-import Task exposing (Task)
-import Time
 import Url exposing (Protocol(..), Url)
 
 
@@ -19,19 +19,19 @@ type alias Config frontendMsg toBackend backendMsg toFrontend frontendModel back
     { toBackend : ToBackend -> toBackend
     , toFrontend : ToFrontend -> toFrontend
     , backendMsg : BackendMsg -> backendMsg
-    , sendToFrontend : SessionId -> toFrontend -> Cmd backendMsg
-    , sendToBackend : toBackend -> Cmd frontendMsg
-    , methods : List (Method frontendMsg backendMsg frontendModel backendModel)
-    , renewSession : SessionId -> ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
+    , sendToFrontend : SessionId -> toFrontend -> Command BackendOnly toFrontend backendMsg
+    , sendToBackend : toBackend -> Command BackendOnly toFrontend frontendMsg
+    , methods : List (Method frontendMsg toBackend backendMsg toFrontend frontendModel backendModel)
+    , renewSession : SessionId -> ClientId -> backendModel -> ( backendModel, Command BackendOnly toFrontend backendMsg )
     }
 
 
-type Method frontendMsg backendMsg frontendModel backendModel
-    = ProtocolOAuth (ConfigurationOAuth frontendMsg backendMsg frontendModel backendModel)
-    | ProtocolEmailMagicLink (ConfigurationEmailMagicLink frontendMsg backendMsg frontendModel backendModel)
+type Method frontendMsg toBackend backendMsg toFrontend frontendModel backendModel
+    = ProtocolOAuth (ConfigurationOAuth frontendMsg toBackend backendMsg frontendModel backendModel)
+    | ProtocolEmailMagicLink (ConfigurationEmailMagicLink frontendMsg toBackend backendMsg toFrontend frontendModel backendModel)
 
 
-type alias ConfigurationEmailMagicLink frontendMsg backendMsg frontendModel backendModel =
+type alias ConfigurationEmailMagicLink frontendMsg toBackend backendMsg toFrontend frontendModel backendModel =
     { id : String
     , initiateSignin :
         SessionId
@@ -39,14 +39,14 @@ type alias ConfigurationEmailMagicLink frontendMsg backendMsg frontendModel back
         -> backendModel
         -> { username : Maybe String }
         -> Time.Posix
-        -> ( backendModel, Cmd backendMsg )
+        -> ( backendModel, Command BackendOnly toFrontend backendMsg )
     , onFrontendCallbackInit :
         frontendModel
         -> MethodId
         -> Url
         -> Key
-        -> (ToBackend -> Cmd frontendMsg)
-        -> ( frontendModel, Cmd frontendMsg )
+        -> (ToBackend -> Command FrontendOnly toBackend frontendMsg)
+        -> ( frontendModel, Command FrontendOnly toBackend frontendMsg )
     , onAuthCallbackReceived :
         SessionId
         -> ClientId
@@ -56,12 +56,12 @@ type alias ConfigurationEmailMagicLink frontendMsg backendMsg frontendModel back
         -> Time.Posix
         -> (BackendMsg -> backendMsg)
         -> backendModel
-        -> ( backendModel, Cmd backendMsg )
+        -> ( backendModel, Command BackendOnly toFrontend backendMsg )
     , placeholder : frontendMsg -> backendMsg -> frontendModel -> backendModel -> ()
     }
 
 
-type alias ConfigurationOAuth frontendMsg backendMsg frontendModel backendModel =
+type alias ConfigurationOAuth frontendMsg toBackend backendMsg frontendModel backendModel =
     { id : String
     , authorizationEndpoint : Url
     , tokenEndpoint : Url
@@ -70,14 +70,14 @@ type alias ConfigurationOAuth frontendMsg backendMsg frontendModel backendModel 
     , clientId : String
     , clientSecret : String
     , scope : List String
-    , getUserInfo : OAuth.AuthenticationSuccess -> Task Error UserInfo
+    , getUserInfo : OAuth.AuthenticationSuccess -> Task BackendOnly Error UserInfo
     , onFrontendCallbackInit :
         frontendModel
         -> MethodId
         -> Url
         -> Key
-        -> (ToBackend -> Cmd frontendMsg)
-        -> ( frontendModel, Cmd frontendMsg )
+        -> (ToBackend -> Command FrontendOnly toBackend frontendMsg)
+        -> ( frontendModel, Command FrontendOnly toBackend frontendMsg )
     , placeholder : ( backendModel, backendMsg ) -> ()
     }
 
@@ -180,14 +180,14 @@ type alias UserInfo =
 
 type alias PendingAuth =
     { created : Time.Posix
-    , sessionId : SessionId
+    , sessionId : Effect.Lamdera.SessionId
     , state : String
     }
 
 
 type alias PendingEmailAuth =
     { created : Time.Posix
-    , sessionId : SessionId
+    , sessionId : Effect.Lamdera.SessionId
     , username : String
     , fullname : String
     , token : String
@@ -231,10 +231,10 @@ sleepTask isDev msg =
     -- make sure we sleep a little before a redirect otherwise we won't have our
     -- persisted state.
     (if isDev then
-        Process.sleep 3000
+        Process.sleep (Duration.seconds 3)
 
      else
-        Process.sleep 0
+        Process.sleep (Duration.seconds 0)
     )
         |> Task.perform (always msg)
 
@@ -249,15 +249,3 @@ nothingIfEmpty s =
 
     else
         Just trimmed
-
-
-
--- Lamdera aliases
-
-
-type alias SessionId =
-    String
-
-
-type alias ClientId =
-    String

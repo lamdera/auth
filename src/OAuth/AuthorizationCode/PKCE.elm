@@ -1,71 +1,58 @@
-module OAuth.AuthorizationCode exposing
-    ( makeAuthorizationUrl, Authorization, parseCode, AuthorizationResult, AuthorizationResultWith(..), AuthorizationError, AuthorizationSuccess, AuthorizationCode
+module OAuth.AuthorizationCode.PKCE exposing
+    ( CodeVerifier(..), CodeChallenge(..), codeVerifierFromBytes, codeVerifierToString, mkCodeChallenge, codeChallengeToString
+    , makeAuthorizationUrl, Authorization, parseCode, AuthorizationResult, AuthorizationError, AuthorizationSuccess, AuthorizationCode
     , makeTokenRequest, Authentication, Credentials, AuthenticationSuccess, AuthenticationError, RequestParts
     , defaultAuthenticationSuccessDecoder, defaultAuthenticationErrorDecoder
-    , makeAuthorizationUrlWith
+    , makeAuthorizationUrlWith, AuthorizationResultWith(..)
     , makeTokenRequestWith
     , defaultExpiresInDecoder, defaultScopeDecoder, lenientScopeDecoder, defaultTokenDecoder, defaultRefreshTokenDecoder, defaultErrorDecoder, defaultErrorDescriptionDecoder, defaultErrorUriDecoder
     , parseCodeWith, Parsers, defaultParsers, defaultCodeParser, defaultErrorParser, defaultAuthorizationSuccessParser, defaultAuthorizationErrorParser
     )
 
-{-| The authorization code grant type is used to obtain both access
-tokens and refresh tokens and is optimized for confidential clients.
-Since this is a redirection-based flow, the client must be capable of
-interacting with the resource owner's user-agent (typically a web
-browser) and capable of receiving incoming requests (via redirection)
-from the authorization server.
+{-| OAuth 2.0 public clients utilizing the Authorization Code Grant are
+susceptible to the authorization code interception attack. A possible
+mitigation against the threat is to use a technique called Proof Key for
+Code Exchange (PKCE, pronounced "pixy") when supported by the target
+authorization server. See also [RFC 7636](https://tools.ietf.org/html/rfc7636).
 
 
 ## Quick Start
 
-To get started, have a look at the [live-demo](https://truqu.github.io/elm-oauth2/auth0/authorization-code/) and its
-corresponding [source code](https://github.com/truqu/elm-oauth2/blob/master/examples/providers/auth0/authorization-code/Main.elm).
+To get started, have a look at the [live-demo](https://truqu.github.io/elm-oauth2/auth0/pkce/) and its corresponding [source
+code](https://github.com/truqu/elm-oauth2/blob/master/examples/providers/auth0/pkce/Main.elm)
 
 
 ## Overview
 
-       +---------+                                +--------+
-       |         |---(A)- Auth Redirection ------>|        |
-       |         |                                |  Auth  |
-       | Browser |                                | Server |
-       |         |                                |        |
-       |         |<--(B)- Redirection Callback ---|        |
-       +---------+          (w/ Auth Code)        +--------+
-         ^     |                                    ^    |
-         |     |                                    |    |
-        (A)   (B)                                   |    |
-         |     |                                    |    |
-         |     v                                    |    |
-       +---------+                                  |    |
-       |         |----(C)---- Auth Code ------------+    |
-       | Elm App |                                       |
-       |         |                                       |
-       |         |<---(D)------ Access Token ------------+
-       +---------+       (w/ Optional Refresh Token)
+                                         +-----------------+
+                                         |  Auth   Server  |
+        +-------+                        | +-------------+ |
+        |       |--(1)- Auth Request --->| |             | |
+        |       |    + code_challenge    | |    Auth     | |
+        |       |                        | |   Endpoint  | |
+        |       |<-(2)-- Auth Code ------| |             | |
+        |  Elm  |                        | +-------------+ |
+        |  App  |                        |                 |
+        |       |                        | +-------------+ |
+        |       |--(3)- Token Request -->| |             | |
+        |       |      + code_verifier   | |   Token     | |
+        |       |                        | |  Endpoint   | |
+        |       |<-(4)- Access Token --->| |             | |
+        +-------+                        | +-------------+ |
+                                         +-----------------+
 
-  - (A) The client initiates the flow by directing the resource owner's
-    user-agent to the authorization endpoint.
+See also the Authorization Code flow for details about the basic version
+of this flow.
 
-  - (B) Assuming the resource owner grants access, the authorization
-    server redirects the user-agent back to the client including an
-    authorization code and any local state provided by the client
-    earlier.
 
-  - (C) The client requests an access token from the authorization
-    server's token endpoint by including the authorization code
-    received in the previous step.
+## Code Verifier / Challenge
 
-  - (D) The authorization server authenticates the client and validates
-    the authorization code. If valid, the authorization server responds
-    back with an access token and, optionally, a refresh token.
-
-After those steps, the client owns a `Token` that can be used to authorize any subsequent
-request.
+@docs CodeVerifier, CodeChallenge, codeVerifierFromBytes, codeVerifierToString, mkCodeChallenge, codeChallengeToString
 
 
 ## Authorize
 
-@docs makeAuthorizationUrl, Authorization, parseCode, AuthorizationResult, AuthorizationResultWith, AuthorizationError, AuthorizationSuccess, AuthorizationCode
+@docs makeAuthorizationUrl, Authorization, parseCode, AuthorizationResult, AuthorizationError, AuthorizationSuccess, AuthorizationCode
 
 
 ## Authenticate
@@ -83,7 +70,7 @@ request.
 
 ### Authorize
 
-@docs makeAuthorizationUrlWith
+@docs makeAuthorizationUrlWith, AuthorizationResultWith
 
 
 ### Authenticate
@@ -102,16 +89,91 @@ request.
 
 -}
 
-import Dict exposing (Dict)
-import Duration exposing (Duration)
-import Effect.Http as Http
+import Base64.Encode as Base64
+import Bytes exposing (Bytes)
+import Dict as Dict exposing (Dict)
+import Effect.Http
+import Internal as Internal exposing (..)
 import Json.Decode as Json
-import OAuth exposing (ErrorCode, GrantType(..), ResponseType(..), Token, errorCodeFromString, grantTypeToString)
-import OAuth.Internal as Internal exposing (..)
+import OAuth exposing (ErrorCode, GrantType(..), ResponseType(..), Token, errorCodeFromString)
+import OAuth.AuthorizationCode
+import SHA256 as SHA256
 import Url exposing (Url)
 import Url.Builder as Builder
 import Url.Parser as Url exposing ((<?>))
 import Url.Parser.Query as Query
+
+
+
+--
+-- Code Challenge / Code Verifier
+--
+
+
+{-| An opaque type representing a code verifier. Typically constructed from a high quality entropy.
+
+    case codeVerifierFromBytes entropy of
+      Nothing -> {- ...-}
+      Just codeVerifier -> {- ... -}
+
+-}
+type CodeVerifier
+    = CodeVerifier Base64.Encoder
+
+
+{-| An opaque type representing a code challenge. Typically constructed from a `CodeVerifier`.
+
+    let codeChallenge = mkCodeChallenge codeVerifier
+
+-}
+type CodeChallenge
+    = CodeChallenge Base64.Encoder
+
+
+{-| Construct a code verifier from a byte sequence generated from a **high quality randomness** source (i.e. cryptographic).
+
+Ideally, the byte sequence _should be_ 32 or 64 bytes, and it _must be_ at least 32 bytes and at most 90 bytes.
+
+-}
+codeVerifierFromBytes : Bytes -> Maybe CodeVerifier
+codeVerifierFromBytes bytes =
+    if Bytes.width bytes < 32 || Bytes.width bytes > 90 then
+        Nothing
+
+    else
+        bytes |> Base64.bytes |> CodeVerifier |> Just
+
+
+{-| Convert a code verifier to its string representation.
+-}
+codeVerifierToString : CodeVerifier -> String
+codeVerifierToString (CodeVerifier str) =
+    base64UrlEncode str
+
+
+{-| Construct a `CodeChallenge` to send to the authorization server. Upon receiving the authorization code, the client can then
+the associated `CodeVerifier` to prove it is the rightful owner of the authorization code.
+-}
+mkCodeChallenge : CodeVerifier -> CodeChallenge
+mkCodeChallenge =
+    codeVerifierToString >> SHA256.fromString >> SHA256.toBytes >> Base64.bytes >> CodeChallenge
+
+
+{-| Convert a code challenge to its string representation.
+-}
+codeChallengeToString : CodeChallenge -> String
+codeChallengeToString (CodeChallenge str) =
+    base64UrlEncode str
+
+
+{-| Internal function implementing Base64-URL encoding (i.e. base64 without padding and some unsuitable characters replaced)
+-}
+base64UrlEncode : Base64.Encoder -> String
+base64UrlEncode =
+    Base64.encode
+        >> String.replace "=" ""
+        >> String.replace "+" "-"
+        >> String.replace "/" "_"
 
 
 
@@ -142,6 +204,10 @@ import Url.Parser.Query as Query
     the user-agent back to the client. The parameter SHOULD be used for preventing
     cross-site request forgery.
 
+  - `codeChallenge` (_REQUIRED_):
+    A challenge derived from the code verifier that is sent in the
+    authorization request, to be verified against later.
+
 -}
 type alias Authorization =
     { clientId : String
@@ -149,6 +215,7 @@ type alias Authorization =
     , redirectUri : Url
     , scope : List String
     , state : Maybe String
+    , codeChallenge : CodeChallenge
     }
 
 
@@ -182,7 +249,7 @@ type alias AuthorizationError =
 
 {-| The response obtained as a result of an authorization
 
-  - code (_REQUIRED_):
+  - `code` (_REQUIRED_):
     The authorization code generated by the authorization server. The authorization code MUST expire
     shortly after it is issued to mitigate the risk of leaks. A maximum authorization code lifetime of
     10 minutes is RECOMMENDED. The client MUST NOT use the authorization code more than once. If an
@@ -190,20 +257,14 @@ type alias AuthorizationError =
     SHOULD revoke (when possible) all tokens previously issued based on that authorization code. The
     authorization code is bound to the client identifier and redirection URI.
 
-  - state (_REQUIRED if `state` was present in the authorization request_):
+  - `state` (_REQUIRED if `state` was present in the authorization request_):
     The exact value received from the client
 
 -}
 type alias AuthorizationSuccess =
-    { code : AuthorizationCode
+    { code : String
     , state : Maybe String
     }
-
-
-{-| A simple type alias to ease readability of type signatures
--}
-type alias AuthorizationCode =
-    String
 
 
 {-| Describes errors coming from attempting to parse a url after an OAuth redirection
@@ -236,7 +297,7 @@ makeAuthorizationUrl =
 {-| Parse the location looking for a parameters set by the resource provider server after
 redirecting the resource owner (user).
 
-Returns `AuthorizationResult Empty` when there's nothing
+Returns `AuthorizationResult Empty` when there's nothing.
 
 -}
 parseCode : Url -> AuthorizationResult
@@ -253,23 +314,28 @@ parseCode =
 {-| Request configuration for an AuthorizationCode authentication
 
   - `credentials` (_REQUIRED_):
-    Only the `clientId` is required. Specify a `secret` if a Basic authentication
+    Only the clientId is required. Specify a secret if a Basic OAuth
     is required by the resource provider.
 
   - `code` (_REQUIRED_):
     Authorization code from the authorization result
 
+  - `codeVerifier` (_REQUIRED_):
+    The code verifier proving you are the rightful recipient of the
+    access token.
+
   - `url` (_REQUIRED_):
     Token endpoint of the resource provider
 
   - `redirectUri` (_REQUIRED_):
-    Redirect Uri to your web server used in the authorization step, provided
+    Redirect Uri to your webserver used in the authorization step, provided
     here for verification.
 
 -}
 type alias Authentication =
     { credentials : Credentials
     , code : String
+    , codeVerifier : CodeVerifier
     , redirectUri : Url
     , url : Url
     }
@@ -299,8 +365,13 @@ type alias AuthenticationSuccess =
     , refreshToken : Maybe Token
     , expiresIn : Maybe Int
     , scope : List String
-    , idJwt : Maybe String
     }
+
+
+{-| A simple type alias to ease readability of type signatures
+-}
+type alias AuthorizationCode =
+    String
 
 
 {-| Describes an OAuth error as a result of a request failure
@@ -332,11 +403,11 @@ in order to create a new request and may be adjusted at will.
 -}
 type alias RequestParts a =
     { method : String
-    , headers : List Http.Header
+    , headers : List Effect.Http.Header
     , url : String
-    , body : Http.Body
-    , expect : Http.Expect a
-    , timeout : Maybe Duration
+    , body : Effect.Http.Body
+    , expect : Effect.Http.Expect a
+    , timeout : Maybe Float
     , tracker : Maybe String
     }
 
@@ -363,9 +434,52 @@ type alias Credentials =
         req = makeTokenRequest toMsg authentication |> Http.request
 
 -}
-makeTokenRequest : (Result Http.Error AuthenticationSuccess -> msg) -> Authentication -> RequestParts msg
+makeTokenRequest : (Result Effect.Http.Error AuthenticationSuccess -> msg) -> Authentication -> RequestParts msg
 makeTokenRequest =
     makeTokenRequestWith AuthorizationCode defaultAuthenticationSuccessDecoder Dict.empty
+
+
+
+--
+-- Json Decoders
+--
+
+
+{-| Json decoder for a positive response. You may provide a custom response decoder using other decoders
+from this module, or some of your own craft.
+
+    defaultAuthenticationSuccessDecoder : Decoder AuthenticationSuccess
+    defaultAuthenticationSuccessDecoder =
+        D.map4 AuthenticationSuccess
+            tokenDecoder
+            refreshTokenDecoder
+            expiresInDecoder
+            scopeDecoder
+
+-}
+defaultAuthenticationSuccessDecoder : Json.Decoder AuthenticationSuccess
+defaultAuthenticationSuccessDecoder =
+    Internal.authenticationSuccessDecoder
+
+
+{-| Json decoder for an errored response.
+
+    case res of
+        Err (Http.BadStatus { body }) ->
+            case Json.decodeString OAuth.AuthorizationCode.defaultAuthenticationErrorDecoder body of
+                Ok { error, errorDescription } ->
+                    doSomething
+
+                _ ->
+                    parserFailed
+
+        _ ->
+            someOtherError
+
+-}
+defaultAuthenticationErrorDecoder : Json.Decoder AuthenticationError
+defaultAuthenticationErrorDecoder =
+    Internal.authenticationErrorDecoder defaultErrorDecoder
 
 
 
@@ -374,8 +488,8 @@ makeTokenRequest =
 --
 
 
-{-| Like [`makeAuthorizationUrl`](#makeAuthorizationUrl), but gives you the ability to specify a
-custom response type and extra fields to be set on the query.
+{-| Like [`makeAuthorizationUrl`](#makeAuthorizationUrl), but gives you the ability to specify a custom response type
+and extra fields to be set on the query.
 
     makeAuthorizationUrl : Authorization -> Url
     makeAuthorizationUrl =
@@ -391,10 +505,17 @@ token type and an extra query parameter as such:
 
 -}
 makeAuthorizationUrlWith : ResponseType -> Dict String String -> Authorization -> Url
-makeAuthorizationUrlWith responseType extraFields { clientId, url, redirectUri, scope, state } =
-    Internal.makeAuthorizationUrl
+makeAuthorizationUrlWith responseType extraFields { clientId, url, redirectUri, scope, state, codeChallenge } =
+    let
+        extraInternalFields =
+            Dict.fromList
+                [ ( "code_challenge", codeChallengeToString codeChallenge )
+                , ( "code_challenge_method", "S256" )
+                ]
+    in
+    OAuth.AuthorizationCode.makeAuthorizationUrlWith
         responseType
-        extraFields
+        (Dict.union extraFields extraInternalFields)
         { clientId = clientId
         , url = url
         , redirectUri = redirectUri
@@ -403,8 +524,23 @@ makeAuthorizationUrlWith responseType extraFields { clientId, url, redirectUri, 
         }
 
 
-{-| Like [`makeTokenRequest`](#makeTokenRequest), but gives you the ability to specify custom grant
-type and extra fields to be set on the query.
+{-| See [`parseCode`](#parseCode), but gives you the ability to provide your own custom parsers.
+-}
+parseCodeWith : Parsers error success -> Url -> AuthorizationResultWith error success
+parseCodeWith parsers url =
+    case OAuth.AuthorizationCode.parseCodeWith parsers url of
+        OAuth.AuthorizationCode.Empty ->
+            Empty
+
+        OAuth.AuthorizationCode.Success s ->
+            Success s
+
+        OAuth.AuthorizationCode.Error e ->
+            Error e
+
+
+{-| Like [`makeTokenRequest`](#makeTokenRequest), but gives you the ability to specify custom grant type and extra
+fields to be set on the query.
 
     makeTokenRequest : (Result Http.Error AuthenticationSuccess -> msg) -> Authentication -> RequestParts msg
     makeTokenRequest =
@@ -414,57 +550,27 @@ type and extra fields to be set on the query.
             Dict.empty
 
 -}
-makeTokenRequestWith : GrantType -> Json.Decoder success -> Dict String String -> (Result Http.Error success -> msg) -> Authentication -> RequestParts msg
-makeTokenRequestWith grantType decoder extraFields toMsg { credentials, code, url, redirectUri } =
+makeTokenRequestWith : GrantType -> Json.Decoder success -> Dict String String -> (Result Effect.Http.Error success -> msg) -> Authentication -> RequestParts msg
+makeTokenRequestWith grantType decoder extraFields toMsg { credentials, code, codeVerifier, url, redirectUri } =
     let
-        body =
-            [ Builder.string "grant_type" (grantTypeToString grantType)
-            , Builder.string "client_id" credentials.clientId
-            , Builder.string "client_id_secret" (credentials.secret |> Maybe.withDefault "")
-            , Builder.string "redirect_uri" (makeRedirectUri redirectUri)
-            , Builder.string "code" code
-            ]
-                |> urlAddExtraFields extraFields
-                |> Builder.toQuery
-                |> String.dropLeft 1
-
-        headers =
-            makeHeaders <|
-                case credentials.secret of
-                    Nothing ->
-                        Nothing
-
-                    Just secret ->
-                        Just { clientId = credentials.clientId, secret = secret }
+        extraInternalFields =
+            Dict.fromList
+                [ ( "code_verifier", codeVerifierToString codeVerifier )
+                ]
     in
-    makeRequest decoder toMsg url headers body
+    OAuth.AuthorizationCode.makeTokenRequestWith
+        grantType
+        decoder
+        (Dict.union extraFields extraInternalFields)
+        toMsg
+        { credentials = credentials
+        , code = code
+        , url = url
+        , redirectUri = redirectUri
+        }
 
 
-{-| Like [`parseCode`](#parseCode), but gives you the ability to provide your own custom parsers.
-
-    parseCode : Url -> AuthorizationResultWith AuthorizationError AuthorizationSuccess
-    parseCode =
-        parseCodeWith defaultParsers
-
--}
-parseCodeWith : Parsers error success -> Url -> AuthorizationResultWith error success
-parseCodeWith { codeParser, errorParser, authorizationSuccessParser, authorizationErrorParser } url_ =
-    let
-        url =
-            { url_ | path = "/" }
-    in
-    case Url.parse (Url.top <?> Query.map2 Tuple.pair codeParser errorParser) url of
-        Just ( Just code, _ ) ->
-            parseUrlQuery url Empty (Query.map Success <| authorizationSuccessParser code)
-
-        Just ( _, Just error ) ->
-            parseUrlQuery url Empty (Query.map Error <| authorizationErrorParser error)
-
-        _ ->
-            Empty
-
-
-{-| Parsers used in the `parseCode` function.
+{-| Parsers used in the [`parseCode`](#parseCode) function.
 
   - `codeParser`: looks for a `code` string
   - `errorParser`: looks for an `error` to build a corresponding `ErrorCode`
@@ -520,43 +626,6 @@ defaultAuthorizationErrorParser =
     authorizationErrorParser
 
 
-{-| Json decoder for a positive response. You may provide a custom response decoder using other decoders
-from this module, or some of your own craft.
-
-    defaultAuthenticationSuccessDecoder : Decoder AuthenticationSuccess
-    defaultAuthenticationSuccessDecoder =
-        D.map4 AuthenticationSuccess
-            tokenDecoder
-            refreshTokenDecoder
-            expiresInDecoder
-            scopeDecoder
-
--}
-defaultAuthenticationSuccessDecoder : Json.Decoder AuthenticationSuccess
-defaultAuthenticationSuccessDecoder =
-    Internal.authenticationSuccessDecoder
-
-
-{-| Json decoder for an error response.
-
-    case res of
-        Err (Http.BadStatus { body }) ->
-            case Json.decodeString OAuth.AuthorizationCode.defaultAuthenticationErrorDecoder body of
-                Ok { error, errorDescription } ->
-                    doSomething
-
-                _ ->
-                    parserFailed
-
-        _ ->
-            someOtherError
-
--}
-defaultAuthenticationErrorDecoder : Json.Decoder AuthenticationError
-defaultAuthenticationErrorDecoder =
-    Internal.authenticationErrorDecoder defaultErrorDecoder
-
-
 {-| Json decoder for the `expiresIn` field.
 -}
 defaultExpiresInDecoder : Json.Decoder (Maybe Int)
@@ -571,7 +640,7 @@ defaultScopeDecoder =
     Internal.scopeDecoder
 
 
-{-| Json decoder for the `scope` field (comma- or space-separated).
+{-| Json decoder for the `scope` (comma- or space-separated).
 -}
 lenientScopeDecoder : Json.Decoder (List String)
 lenientScopeDecoder =

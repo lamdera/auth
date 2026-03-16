@@ -2,7 +2,7 @@ module Auth.HttpHelpers exposing (..)
 
 -- import Effect.Http exposing (..)
 
-import Http
+import Effect.Http as Http
 import Json.Decode as D
 
 
@@ -98,7 +98,7 @@ customError s =
 --     Effect.Http.BadBody <| "Error: " ++ s
 
 
-jsonResolver : D.Decoder a -> Http.Resolver Http.Error a
+jsonResolver : D.Decoder a -> Http.Resolver r Http.Error a
 jsonResolver decoder =
     Http.stringResolver <|
         \response ->

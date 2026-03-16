@@ -62,8 +62,8 @@ The following section can be ignored if you're dealing with a very generic OAuth
 
 -}
 
+import Effect.Http as Http
 import Extra.Maybe as Maybe
-import Http as Http
 
 
 

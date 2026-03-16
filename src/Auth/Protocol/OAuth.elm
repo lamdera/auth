@@ -2,15 +2,17 @@ module Auth.Protocol.OAuth exposing (..)
 
 import Auth.Common exposing (..)
 import Auth.HttpHelpers as HttpHelpers
-import Browser.Navigation as Navigation
 import Dict exposing (Dict)
-import Http
+import Effect.Browser.Navigation as Navigation
+import Effect.Command as Command exposing (Command, FrontendOnly)
+import Effect.Http as Http
+import Effect.Lamdera
+import Effect.Task as Task exposing (Task)
 import Json.Decode as Json
 import OAuth
 import OAuth.AuthorizationCode as OAuth
 import Process
 import SHA1
-import Task exposing (Task)
 import Time
 import Url exposing (Url)
 
@@ -20,8 +22,8 @@ onFrontendCallbackInit :
     -> Auth.Common.MethodId
     -> Url
     -> Navigation.Key
-    -> (Auth.Common.ToBackend -> Cmd frontendMsg)
-    -> ( { frontendModel | authFlow : Flow, authRedirectBaseUrl : Url }, Cmd frontendMsg )
+    -> (Auth.Common.ToBackend -> Command FrontendOnly toBackend frontendMsg)
+    -> ( { frontendModel | authFlow : Flow, authRedirectBaseUrl : Url }, Command FrontendOnly toBackend frontendMsg )
 onFrontendCallbackInit model methodId origin navigationKey toBackendFn =
     let
         redirectUri =
@@ -33,7 +35,7 @@ onFrontendCallbackInit model methodId origin navigationKey toBackendFn =
     case OAuth.parseCode origin of
         OAuth.Empty ->
             ( { model | authFlow = Idle }
-            , Cmd.none
+            , Command.none
             )
 
         OAuth.Success { code, state } ->
@@ -48,7 +50,7 @@ onFrontendCallbackInit model methodId origin navigationKey toBackendFn =
                     accessTokenRequested model_ methodId code state_
             in
             ( newModel
-            , Cmd.batch [ toBackendFn newCmds, clearUrl ]
+            , Command.batch [ toBackendFn newCmds, clearUrl ]
             )
 
         OAuth.Error error ->
@@ -77,7 +79,7 @@ initiateSignin isDev sessionId baseUrl config asBackendMsg now backendModel =
                     (String.fromInt <| Time.posixToMillis <| now)
                         -- @TODO this needs to be user-injected config
                         ++ "0x3vd7a"
-                        ++ sessionId
+                        ++ Effect.Lamdera.sessionIdToString sessionId
 
         newPendingAuth : PendingAuth
         newPendingAuth =
@@ -90,7 +92,7 @@ initiateSignin isDev sessionId baseUrl config asBackendMsg now backendModel =
             generateSigninUrl baseUrl signedState config
     in
     ( { backendModel
-        | pendingAuths = backendModel.pendingAuths |> Dict.insert sessionId newPendingAuth
+        | pendingAuths = backendModel.pendingAuths |> Dict.insert (Effect.Lamdera.sessionIdToString sessionId) newPendingAuth
       }
     , Auth.Common.sleepTask
         isDev
@@ -103,7 +105,7 @@ initiateSignin isDev sessionId baseUrl config asBackendMsg now backendModel =
     )
 
 
-generateSigninUrl : Url -> Auth.Common.State -> Auth.Common.ConfigurationOAuth frontendMsg backendMsg frontendModel backendModel -> Url
+generateSigninUrl : Url -> Auth.Common.State -> Auth.Common.ConfigurationOAuth frontendMsg toBackend backendMsg frontendModel backendModel -> Url
 generateSigninUrl baseUrl state configuration =
     let
         queryAdjustedUrl =
@@ -131,7 +133,7 @@ onAuthCallbackReceived sessionId clientId method receivedUrl code state now asBa
     , validateCallbackToken method.clientId method.clientSecret method.tokenEndpoint receivedUrl code
         |> Task.andThen
             (\authenticationResponse ->
-                case backendModel.pendingAuths |> Dict.get sessionId of
+                case backendModel.pendingAuths |> Dict.get (Effect.Lamdera.sessionIdToString sessionId) of
                     Just pendingAuth ->
                         let
                             authToken =
@@ -158,7 +160,7 @@ validateCallbackToken :
     -> Url
     -> Url
     -> OAuth.AuthorizationCode
-    -> Task Auth.Common.Error OAuth.AuthenticationSuccess
+    -> Task r Auth.Common.Error OAuth.AuthenticationSuccess
 validateCallbackToken clientId clientSecret tokenEndpoint redirectUri code =
     let
         req =
