@@ -1,10 +1,10 @@
 module JWT.ClaimSet exposing (ClaimSet, VerificationError(..), VerifyOptions, decoder, encoder, isValid)
 
-import Dict exposing (Dict)
-import Json.Decode as Decode
+import Effect.Time exposing (Posix)
+import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline exposing (custom, optional)
 import Json.Encode as Encode
-import Time exposing (Posix)
+import SeqDict as Dict exposing (SeqDict)
 
 
 type alias ClaimSet =
@@ -15,8 +15,13 @@ type alias ClaimSet =
     , nbf : Maybe Int
     , iat : Maybe Int
     , jti : Maybe String
-    , metadata : Dict String Decode.Value
+    , metadata : SeqDict String Decode.Value
     }
+
+
+decoderDict : Decoder a -> Decoder (SeqDict String a)
+decoderDict decoder_ =
+    Decode.map Dict.fromList (Decode.keyValuePairs decoder_)
 
 
 decoder : Decode.Decoder ClaimSet
@@ -29,7 +34,7 @@ decoder =
         |> optional "nbf" (Decode.maybe Decode.int) Nothing
         |> optional "iat" (Decode.maybe Decode.int) Nothing
         |> optional "jti" (Decode.maybe Decode.string) Nothing
-        |> custom (Decode.dict Decode.value)
+        |> custom (decoderDict Decode.value)
 
 
 encoder : ClaimSet -> Encode.Value
@@ -71,7 +76,7 @@ type alias VerifyOptions =
     }
 
 
-isValid : VerifyOptions -> Posix -> ClaimSet -> Result VerificationError Bool
+isValid : VerifyOptions -> Effect.Time.Posix -> ClaimSet -> Result VerificationError Bool
 isValid options now claims =
     checkIssuer claims.iss options.issuer
         |> Result.andThen
@@ -144,42 +149,42 @@ checkID claim option =
                 Err InvalidJWTID
 
 
-checkExpiration : Posix -> Int -> Maybe Int -> Result VerificationError Bool
+checkExpiration : Effect.Time.Posix -> Int -> Maybe Int -> Result VerificationError Bool
 checkExpiration now leeway claim =
     case claim of
         Nothing ->
             Ok True
 
         Just expiration ->
-            if Time.posixToMillis now - leeway < expiration * 1000 then
+            if Effect.Time.posixToMillis now - leeway < expiration * 1000 then
                 Ok True
 
             else
                 Err Expired
 
 
-checkNotBefore : Posix -> Int -> Maybe Int -> Result VerificationError Bool
+checkNotBefore : Effect.Time.Posix -> Int -> Maybe Int -> Result VerificationError Bool
 checkNotBefore now leeway claim =
     case claim of
         Nothing ->
             Ok True
 
         Just nbf ->
-            if Time.posixToMillis now + leeway > nbf * 1000 then
+            if Effect.Time.posixToMillis now + leeway > nbf * 1000 then
                 Ok True
 
             else
                 Err NotYetValid
 
 
-checkIssuedAt : Posix -> Int -> Maybe Int -> Result VerificationError Bool
+checkIssuedAt : Effect.Time.Posix -> Int -> Maybe Int -> Result VerificationError Bool
 checkIssuedAt now leeway claim =
     case claim of
         Nothing ->
             Ok True
 
         Just iat ->
-            if Time.posixToMillis now + leeway > iat * 1000 then
+            if Effect.Time.posixToMillis now + leeway > iat * 1000 then
                 Ok True
 
             else

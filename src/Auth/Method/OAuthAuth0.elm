@@ -6,13 +6,14 @@ import Auth.Protocol.OAuth
 import Base64.Encode as Base64
 import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
-import Dict exposing (Dict)
-import Http
+import Effect.Command exposing (FrontendOnly)
+import Effect.Http
+import Effect.Task exposing (Task)
 import JWT exposing (..)
 import JWT.JWS as JWS
 import Json.Decode as Json
 import OAuth.AuthorizationCode as OAuth
-import Task exposing (Task)
+import SeqDict as Dict exposing (SeqDict)
 import Url exposing (Protocol(..), Url)
 
 
@@ -26,6 +27,8 @@ configuration :
             backendMsg
             { frontendModel | authFlow : Flow, authRedirectBaseUrl : Url }
             backendModel
+            FrontendOnly
+            toMsg
 configuration clientId clientSecret appTenant =
     ProtocolOAuth
         { id = "OAuthAuth0"
@@ -55,28 +58,36 @@ configuration clientId clientSecret appTenant =
 
 getUserInfo :
     OAuth.AuthenticationSuccess
-    -> Task Auth.Common.Error UserInfo
+    -> Effect.Task.Task restriction Auth.Common.Error UserInfo
 getUserInfo authenticationSuccess =
     let
-        extract : String -> Json.Decoder a -> Dict String Json.Value -> Result String a
+        extract : String -> Json.Decoder a -> SeqDict String Json.Value -> Result String a
         extract k d v =
             Dict.get k v
                 |> Maybe.map
-                    (\v_ ->
-                        Json.decodeValue d v_
-                            |> Result.mapError Json.errorToString
+                    (\value ->
+                        case Json.decodeValue d value of
+                            Ok decoded ->
+                                Ok decoded
+
+                            Err err ->
+                                Err <| Json.errorToString err
                     )
                 |> Maybe.withDefault (Err <| "Key " ++ k ++ " not found")
 
-        extractOptional : a -> String -> Json.Decoder a -> Dict String Json.Value -> Result String a
+        extractOptional : a -> String -> Json.Decoder a -> SeqDict String Json.Value -> Result String a
         extractOptional default k d v =
             Dict.get k v
                 |> Maybe.map
-                    (\v_ ->
-                        Json.decodeValue d v_
-                            |> Result.mapError Json.errorToString
+                    (\value ->
+                        case Json.decodeValue d value of
+                            Ok decoded ->
+                                Ok decoded
+
+                            Err _ ->
+                                Ok default
                     )
-                |> Maybe.withDefault (Ok <| default)
+                |> Maybe.withDefault (Ok default)
 
         tokenR =
             case authenticationSuccess.idJwt of
@@ -113,10 +124,10 @@ getUserInfo authenticationSuccess =
                             (extractOptional Nothing "family_name" (Json.string |> Json.nullable) meta)
                     )
     in
-    Task.mapError (Auth.Common.ErrAuthString << HttpHelpers.httpErrorToString) <|
+    Effect.Task.mapError (Auth.Common.ErrAuthString << HttpHelpers.httpErrorToString) <|
         case stuff of
             Ok result ->
-                Task.succeed
+                Effect.Task.succeed
                     { email = result.email
                     , name =
                         [ Maybe.withDefault "" result.given_name, Maybe.withDefault "" result.family_name ]
@@ -126,7 +137,7 @@ getUserInfo authenticationSuccess =
                     }
 
             Err err ->
-                Task.fail (Http.BadBody err)
+                Effect.Task.fail (Effect.Http.BadBody err)
 
 
 jwtErrorToString err =

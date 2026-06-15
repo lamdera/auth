@@ -2,18 +2,14 @@ module Auth.Flow exposing (..)
 
 import Auth.Common exposing (LogoutEndpointConfig(..), MethodId, ToBackend(..))
 import Auth.Method.EmailMagicLink
-import Auth.Method.OAuthGithub
-import Auth.Method.OAuthGoogle
 import Auth.Protocol.OAuth
-import Browser.Navigation as Navigation
-import Dict exposing (Dict)
+import Effect.Browser.Navigation as Navigation
+import Effect.Command as Command exposing (BackendOnly, Command, FrontendOnly)
+import Effect.Lamdera exposing (ClientId, SessionId, clientIdToString, sessionIdFromString)
+import Effect.Task
+import Effect.Time
 import List.Extra as List
-import OAuth
-import OAuth.AuthorizationCode as OAuth
-import Process
-import SHA1
-import Task
-import Time
+import SeqDict as Dict exposing (SeqDict)
 import Url exposing (Protocol(..), Url)
 import Url.Builder exposing (QueryParameter)
 
@@ -23,8 +19,11 @@ init :
     -> Auth.Common.MethodId
     -> Url
     -> Navigation.Key
-    -> (Auth.Common.ToBackend -> Cmd frontendMsg)
-    -> ( { frontendModel | authFlow : Auth.Common.Flow, authRedirectBaseUrl : Url }, Cmd frontendMsg )
+    -> (Auth.Common.ToBackend -> Command FrontendOnly toMsg frontendMsg)
+    ->
+        ( { frontendModel | authFlow : Auth.Common.Flow, authRedirectBaseUrl : Url }
+        , Command FrontendOnly toMsg frontendMsg
+        )
 init model methodId origin navigationKey toBackendFn =
     case methodId of
         "EmailMagicLink" ->
@@ -73,8 +72,8 @@ updateFromFrontend { asBackendMsg } clientId sessionId authToBackend model =
 
         Auth.Common.AuthCallbackReceived methodId receivedUrl code state ->
             ( model
-            , Time.now
-                |> Task.perform
+            , Effect.Time.now
+                |> Effect.Task.perform
                     (\now ->
                         asBackendMsg <|
                             Auth.Common.AuthCallbackReceived_
@@ -90,9 +89,9 @@ updateFromFrontend { asBackendMsg } clientId sessionId authToBackend model =
 
         Auth.Common.AuthRenewSessionRequested ->
             ( model
-            , Time.now
-                |> Task.perform
-                    (\t ->
+            , Effect.Time.now
+                |> Effect.Task.perform
+                    (\_ ->
                         asBackendMsg <|
                             Auth.Common.AuthRenewSession sessionId clientId
                     )
@@ -100,49 +99,63 @@ updateFromFrontend { asBackendMsg } clientId sessionId authToBackend model =
 
         Auth.Common.AuthLogoutRequested ->
             ( model
-            , Time.now
-                |> Task.perform
-                    (\t ->
+            , Effect.Time.now
+                |> Effect.Task.perform
+                    (\_ ->
                         asBackendMsg <|
                             Auth.Common.AuthLogout sessionId clientId
                     )
             )
 
 
-type alias BackendUpdateConfig frontendMsg backendMsg toFrontend frontendModel backendModel =
+type alias BackendUpdateConfig frontendMsg backendMsg toFrontend frontendModel backendModel toMsg =
     { asToFrontend : Auth.Common.ToFrontend -> toFrontend
     , asBackendMsg : Auth.Common.BackendMsg -> backendMsg
-    , sendToFrontend : Auth.Common.SessionId -> toFrontend -> Cmd backendMsg
-    , backendModel : { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }
-    , loadMethod : Auth.Common.MethodId -> Maybe (Auth.Common.Method frontendMsg backendMsg frontendModel backendModel)
+    , sendToFrontend :
+        SessionId
+        -> toFrontend
+        -> Command BackendOnly toMsg backendMsg
+    , backendModel : { backendModel | pendingAuths : SeqDict SessionId Auth.Common.PendingAuth }
+    , loadMethod :
+        Auth.Common.MethodId
+        -> Maybe (Auth.Common.Method frontendMsg backendMsg frontendModel backendModel BackendOnly toMsg)
     , handleAuthSuccess :
-        Auth.Common.SessionId
-        -> Auth.Common.ClientId
+        SessionId
+        -> ClientId
         -> Auth.Common.UserInfo
         -> MethodId
         -> Maybe Auth.Common.Token
-        -> Time.Posix
-        -> ( { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }, Cmd backendMsg )
-    , renewSession : Auth.Common.SessionId -> Auth.Common.ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
-    , logout : Auth.Common.SessionId -> Auth.Common.ClientId -> backendModel -> ( backendModel, Cmd backendMsg )
+        -> Effect.Time.Posix
+        -> ( { backendModel | pendingAuths : SeqDict SessionId Auth.Common.PendingAuth }, Command BackendOnly toMsg backendMsg )
+    , renewSession : SessionId -> ClientId -> backendModel -> ( backendModel, Command BackendOnly toMsg backendMsg )
+    , logout : SessionId -> ClientId -> backendModel -> ( backendModel, Command BackendOnly toMsg backendMsg )
     , isDev : Bool
     }
 
 
 backendUpdate :
-    BackendUpdateConfig
-        frontendMsg
-        backendMsg
-        toFrontend
-        frontendModel
-        { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }
+    BackendUpdateConfig frontendMsg backendMsg toFrontend frontendModel { backendModel | pendingAuths : SeqDict SessionId Auth.Common.PendingAuth } toMsg
     -> Auth.Common.BackendMsg
-    -> ( { backendModel | pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth }, Cmd backendMsg )
+    -> ( { backendModel | pendingAuths : SeqDict SessionId Auth.Common.PendingAuth }, Command BackendOnly toMsg backendMsg )
 backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMethod, handleAuthSuccess, renewSession, logout, isDev } authBackendMsg =
     let
         authError str =
             asToFrontend (Auth.Common.AuthError (Auth.Common.ErrAuthString str))
 
+        withMethod :
+            Auth.Common.MethodId
+            -> SessionId
+            ->
+                (Auth.Common.Method frontendMsg backendMsg frontendModel { backendModel | pendingAuths : SeqDict SessionId Auth.Common.PendingAuth } BackendOnly toMsg
+                 ->
+                    ( { backendModel | pendingAuths : SeqDict SessionId Auth.Common.PendingAuth }
+                    , Command BackendOnly toMsg backendMsg
+                    )
+                )
+            ->
+                ( { backendModel | pendingAuths : SeqDict SessionId Auth.Common.PendingAuth }
+                , Command BackendOnly toMsg backendMsg
+                )
         withMethod methodId clientId fn =
             case loadMethod methodId of
                 Nothing ->
@@ -156,7 +169,7 @@ backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMe
     case authBackendMsg of
         Auth.Common.AuthSigninInitiated_ { sessionId, clientId, methodId, baseUrl, now, username } ->
             withMethod methodId
-                clientId
+                (clientId |> clientIdToString |> sessionIdFromString)
                 (\method ->
                     case method of
                         Auth.Common.ProtocolEmailMagicLink config ->
@@ -171,7 +184,7 @@ backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMe
 
         Auth.Common.AuthCallbackReceived_ sessionId clientId methodId receivedUrl code state now ->
             withMethod methodId
-                clientId
+                (clientId |> clientIdToString |> sessionIdFromString)
                 (\method ->
                     case method of
                         Auth.Common.ProtocolEmailMagicLink config ->
@@ -187,8 +200,8 @@ backendUpdate { asToFrontend, asBackendMsg, sendToFrontend, backendModel, loadMe
                     { backendModel_ | pendingAuths = backendModel_.pendingAuths |> Dict.remove sessionId }
             in
             withMethod methodId
-                clientId
-                (\method ->
+                (clientId |> clientIdToString |> sessionIdFromString)
+                (\_ ->
                     case res of
                         Ok ( userInfo, authToken ) ->
                             handleAuthSuccess sessionId clientId userInfo methodId authToken now
@@ -220,7 +233,10 @@ signOutRequested :
     Maybe LogoutEndpointConfig
     -> List QueryParameter
     -> { a | authFlow : Auth.Common.Flow, authLogoutReturnUrlBase : Url }
-    -> ( { a | authFlow : Auth.Common.Flow, authLogoutReturnUrlBase : Url }, Cmd msg )
+    ->
+        ( { a | authFlow : Auth.Common.Flow, authLogoutReturnUrlBase : Url }
+        , Command FrontendOnly toMsg msg
+        )
 signOutRequested maybeUrlConfig callBackQueries model =
     ( { model | authFlow = Auth.Common.Idle }
     , case maybeUrlConfig of
@@ -247,7 +263,7 @@ signOutRequested maybeUrlConfig callBackQueries model =
 startProviderSignin :
     Url
     -> { frontendModel | authFlow : Auth.Common.Flow }
-    -> ( { frontendModel | authFlow : Auth.Common.Flow }, Cmd msg )
+    -> ( { frontendModel | authFlow : Auth.Common.Flow }, Command FrontendOnly toMsg msg )
 startProviderSignin url model =
     ( { model | authFlow = Auth.Common.Pending }
     , Navigation.load (Url.toString url)
@@ -257,7 +273,7 @@ startProviderSignin url model =
 setError :
     { frontendModel | authFlow : Auth.Common.Flow }
     -> Auth.Common.Error
-    -> ( { frontendModel | authFlow : Auth.Common.Flow }, Cmd msg )
+    -> ( { frontendModel | authFlow : Auth.Common.Flow }, Command restriction toMsg msg )
 setError model err =
     setAuthFlow model <| Auth.Common.Errored err
 
@@ -265,9 +281,9 @@ setError model err =
 setAuthFlow :
     { frontendModel | authFlow : Auth.Common.Flow }
     -> Auth.Common.Flow
-    -> ( { frontendModel | authFlow : Auth.Common.Flow }, Cmd msg )
+    -> ( { frontendModel | authFlow : Auth.Common.Flow }, Command restriction toMsg msg )
 setAuthFlow model flow =
-    ( { model | authFlow = flow }, Cmd.none )
+    ( { model | authFlow = flow }, Command.none )
 
 
 errorToString : Auth.Common.Error -> String
@@ -276,10 +292,10 @@ errorToString error =
         Auth.Common.ErrStateMismatch ->
             "ErrStateMismatch"
 
-        Auth.Common.ErrAuthorization authorizationError ->
+        Auth.Common.ErrAuthorization _ ->
             "ErrAuthorization"
 
-        Auth.Common.ErrAuthentication authenticationError ->
+        Auth.Common.ErrAuthentication _ ->
             "ErrAuthentication"
 
         Auth.Common.ErrHTTPGetAccessToken ->
@@ -293,15 +309,60 @@ errorToString error =
 
 
 withCurrentTime fn =
-    Time.now |> Task.perform fn
+    Effect.Time.now |> Effect.Task.perform fn
 
 
-methodLoader : List (Auth.Common.Method frontendMsg backendMsg frontendModel backendModel) -> Auth.Common.MethodId -> Maybe (Auth.Common.Method frontendMsg backendMsg frontendModel backendModel)
-methodLoader methods methodId =
+methodLoaderFrontend :
+    List
+        (Auth.Common.Method
+            frontendMsg
+            backendMsg
+            frontendModel
+            backendModel
+            FrontendOnly
+            toBackend
+        )
+    -> Auth.Common.MethodId
+    ->
+        Maybe
+            (Auth.Common.Method
+                frontendMsg
+                backendMsg
+                frontendModel
+                backendModel
+                FrontendOnly
+                toBackend
+            )
+methodLoaderFrontend methods methodId =
     methods
         |> List.find
-            (\config ->
-                case config of
+            (\cfg ->
+                case cfg of
+                    Auth.Common.ProtocolEmailMagicLink method ->
+                        method.id == methodId
+
+                    Auth.Common.ProtocolOAuth method ->
+                        method.id == methodId
+            )
+
+
+methodLoaderBackend :
+    List
+        (Auth.Common.Method
+            frontendMsg
+            backendMsg
+            frontendModel
+            backendModel
+            BackendOnly
+            toBackend
+        )
+    -> Auth.Common.MethodId
+    -> Maybe (Auth.Common.Method frontendMsg backendMsg frontendModel backendModel BackendOnly toBackend)
+methodLoaderBackend methods methodId =
+    methods
+        |> List.find
+            (\cfg ->
+                case cfg of
                     Auth.Common.ProtocolEmailMagicLink method ->
                         method.id == methodId
 
@@ -312,7 +373,7 @@ methodLoader methods methodId =
 
 findMethod :
     Auth.Common.MethodId
-    -> Auth.Common.Config frontendMsg toBackend backendMsg toFrontend frontendModel backendModel
-    -> Maybe (Auth.Common.Method frontendMsg backendMsg frontendModel backendModel)
+    -> Auth.Common.Config frontendMsg toBackend backendMsg toFrontend frontendModel backendModel toMsg
+    -> Maybe (Auth.Common.Method frontendMsg backendMsg frontendModel backendModel FrontendOnly toMsg)
 findMethod methodId config =
-    methodLoader config.methods methodId
+    methodLoaderFrontend config.methods methodId

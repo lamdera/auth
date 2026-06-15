@@ -26,8 +26,11 @@
         "elm/time": "1.0.0 <= v < 2.0.0",
         "elm/url": "1.0.0 <= v < 2.0.0",
         "elmcraft/core-extra": "2.0.0 <= v < 3.0.0",
+        "ianmackenzie/elm-units": "2.10.0 <= v < 3.0.0",
         "ktonon/elm-crypto": "1.1.2 <= v < 2.0.0",
-        "ktonon/elm-word": "2.1.2 <= v < 3.0.0"
+        "ktonon/elm-word": "2.1.2 <= v < 3.0.0",
+        "lamdera/containers": "1.0.0 <= v < 2.0.0",
+        "lamdera/program-test": "3.0.0 <= v < 4.0.0"
     },
     "test-dependencies": {}
 }

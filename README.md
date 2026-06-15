@@ -21,7 +21,6 @@ Progress:
 - [ ] Actually make this an installable package with nice docs
 - [ ] Stretch goal: elm-review rule to set everything up!
 
-
 ### Vendored packages
 
 This package vendors two other Elm packages in order to make modifications:
@@ -31,8 +30,6 @@ This package vendors two other Elm packages in order to make modifications:
 
 Ideally these will be de-vendored into a regular Elm dependencies in future.
 
-
-
 ### Install
 
 Until this is available as a package:
@@ -40,6 +37,7 @@ Until this is available as a package:
 - Clone this repo into your project as a git submodule (or vendor it manually by copy pasting src)
 - Reference `src` in your project's `elm.json:source-directories`
 - Install the relevant deps:
+
 ```
 yes | lamdera install elm/browser
 yes | lamdera install elm/bytes
@@ -59,11 +57,9 @@ yes | lamdera install TSFoster/elm-sha1
 
 You might also have luck with [elm-git-install](https://github.com/robinheghan/elm-git-install), though its not been tried yet.
 
-
 ### Setup
 
 :warning: This is the conceptual target API, not actual instructions for this code yet! (Instead, follow the types!)
-
 
 1. Create `src/Auth.elm`:
 
@@ -95,10 +91,9 @@ config =
 
 2. Modify the 2 core Model types in `src/Types.elm`:
 
-
 ```elm
 import Auth.Common
-import Dict exposing (Dict)
+import SeqDict as Dict exposing (Dict)
 import Lamdera
 import Url exposing (Url)
 

@@ -4,16 +4,17 @@ import Auth.Common exposing (..)
 import Auth.HttpHelpers as HttpHelpers
 import Auth.Protocol.OAuth
 import Base64.Encode as Base64
-import Browser.Navigation as Navigation
 import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
-import Http
+import Effect.Browser.Navigation as Navigation
+import Effect.Command exposing (FrontendOnly)
+import Effect.Http
+import Effect.Task exposing (Task)
 import Json.Decode as Json
 import Json.Decode.Pipeline exposing (..)
 import List.Extra as List
 import OAuth
 import OAuth.AuthorizationCode as OAuth
-import Task exposing (Task)
 import Url exposing (Protocol(..), Url)
 import Url.Builder
 
@@ -27,6 +28,8 @@ configuration :
             backendMsg
             { frontendModel | authFlow : Flow, authRedirectBaseUrl : Url }
             backendModel
+            FrontendOnly
+            toMsg
 configuration clientId clientSecret =
     ProtocolOAuth
         { id = "OAuthGithub"
@@ -47,43 +50,43 @@ configuration clientId clientSecret =
 
 getUserInfo :
     OAuth.AuthenticationSuccess
-    -> Task Auth.Common.Error UserInfo
+    -> Effect.Task.Task restriction Auth.Common.Error UserInfo
 getUserInfo authenticationSuccess =
     getUserInfoTask authenticationSuccess
-        |> Task.andThen
+        |> Effect.Task.andThen
             (\userInfo ->
                 if userInfo.email == "" then
                     fallbackGetEmailFromEmails authenticationSuccess userInfo
 
                 else
-                    Task.succeed userInfo
+                    Effect.Task.succeed userInfo
             )
 
 
-fallbackGetEmailFromEmails : OAuth.AuthenticationSuccess -> UserInfo -> Task Auth.Common.Error UserInfo
+fallbackGetEmailFromEmails : OAuth.AuthenticationSuccess -> UserInfo -> Effect.Task.Task restriction Auth.Common.Error UserInfo
 fallbackGetEmailFromEmails authenticationSuccess userInfo =
     getUserEmailsTask authenticationSuccess
-        |> Task.andThen
+        |> Effect.Task.andThen
             (\userEmails ->
                 case userEmails |> List.find (\v -> v.primary == True) of
                     Just record ->
-                        Task.succeed { userInfo | email = record.email }
+                        Effect.Task.succeed { userInfo | email = record.email }
 
                     Nothing ->
-                        Task.fail <|
+                        Effect.Task.fail <|
                             HttpHelpers.customError
                                 "Could not retrieve an email from Github profile or emails list."
             )
-        |> Task.mapError (HttpHelpers.httpErrorToString >> Auth.Common.ErrAuthString)
+        |> Effect.Task.mapError (HttpHelpers.httpErrorToString >> Auth.Common.ErrAuthString)
 
 
-getUserInfoTask : OAuth.AuthenticationSuccess -> Task Auth.Common.Error UserInfo
+getUserInfoTask : OAuth.AuthenticationSuccess -> Effect.Task.Task restriction Auth.Common.Error UserInfo
 getUserInfoTask authenticationSuccess =
-    Http.task
+    Effect.Http.task
         { method = "GET"
         , headers = OAuth.useToken authenticationSuccess.token []
         , url = Url.toString { defaultHttpsUrl | host = "api.github.com", path = "/user" }
-        , body = Http.emptyBody
+        , body = Effect.Http.emptyBody
         , resolver =
             HttpHelpers.jsonResolver
                 (Json.succeed UserInfo
@@ -93,7 +96,7 @@ getUserInfoTask authenticationSuccess =
                 )
         , timeout = Nothing
         }
-        |> Task.mapError (HttpHelpers.httpErrorToString >> Auth.Common.ErrAuthString)
+        |> Effect.Task.mapError (HttpHelpers.httpErrorToString >> Auth.Common.ErrAuthString)
 
 
 decodeNonEmptyString : Json.Decoder (Maybe String)
@@ -105,13 +108,13 @@ type alias GithubEmail =
     { primary : Bool, email : String }
 
 
-getUserEmailsTask : OAuth.AuthenticationSuccess -> Task Http.Error (List GithubEmail)
+getUserEmailsTask : OAuth.AuthenticationSuccess -> Effect.Task.Task restriction Effect.Http.Error (List GithubEmail)
 getUserEmailsTask authenticationSuccess =
-    Http.task
+    Effect.Http.task
         { method = "GET"
         , headers = OAuth.useToken authenticationSuccess.token []
         , url = Url.toString { defaultHttpsUrl | host = "api.github.com", path = "/user/emails" }
-        , body = Http.emptyBody
+        , body = Effect.Http.emptyBody
         , resolver =
             HttpHelpers.jsonResolver
                 (Json.list

@@ -3,19 +3,16 @@ module Auth.Method.OAuthGoogle exposing (..)
 import Auth.Common exposing (..)
 import Auth.HttpHelpers as HttpHelpers
 import Auth.Protocol.OAuth
-import Base64.Encode as Base64
-import Bytes exposing (Bytes)
-import Bytes.Encode as Bytes
-import Dict exposing (Dict)
-import Http
+import Effect.Command exposing (BackendOnly)
+import Effect.Http
+import Effect.Task
 import JWT exposing (..)
 import JWT.JWS as JWS
 import Json.Decode as Json
 import OAuth
 import OAuth.AuthorizationCode as OAuth
-import Task exposing (Task)
+import SeqDict as Dict exposing (SeqDict)
 import Url exposing (Protocol(..), Url)
-import Url.Builder
 
 
 configuration :
@@ -27,6 +24,8 @@ configuration :
             backendMsg
             { frontendModel | authFlow : Flow, authRedirectBaseUrl : Url }
             backendModel
+            BackendOnly
+            toMsg
 configuration clientId clientSecret =
     ProtocolOAuth
         { id = "OAuthGoogle"
@@ -39,7 +38,7 @@ configuration clientId clientSecret =
         , scope = [ "openid email profile" ]
         , getUserInfo = getUserInfo
         , onFrontendCallbackInit = Auth.Protocol.OAuth.onFrontendCallbackInit
-        , placeholder = \x -> ()
+        , placeholder = \_ -> ()
 
         -- , onAuthCallbackReceived = Debug.todo "onAuthCallbackReceived"
         }
@@ -47,10 +46,10 @@ configuration clientId clientSecret =
 
 getUserInfo :
     OAuth.AuthenticationSuccess
-    -> Task Auth.Common.Error UserInfo
+    -> Effect.Task.Task restriction Auth.Common.Error UserInfo
 getUserInfo authenticationSuccess =
     let
-        extract : String -> Json.Decoder a -> Dict String Json.Value -> Result String a
+        extract : String -> Json.Decoder a -> SeqDict String Json.Value -> Result String a
         extract k d v =
             Dict.get k v
                 |> Maybe.map
@@ -60,7 +59,7 @@ getUserInfo authenticationSuccess =
                     )
                 |> Maybe.withDefault (Err <| "Key " ++ k ++ " not found")
 
-        extractOptional : a -> String -> Json.Decoder a -> Dict String Json.Value -> Result String a
+        extractOptional : a -> String -> Json.Decoder a -> SeqDict String Json.Value -> Result String a
         extractOptional default k d v =
             Dict.get k v
                 |> Maybe.map
@@ -105,10 +104,10 @@ getUserInfo authenticationSuccess =
                             (extractOptional Nothing "family_name" (Json.string |> Json.nullable) meta)
                     )
     in
-    Task.mapError (Auth.Common.ErrAuthString << HttpHelpers.httpErrorToString) <|
+    Effect.Task.mapError (Auth.Common.ErrAuthString << HttpHelpers.httpErrorToString) <|
         case stuff of
             Ok result ->
-                Task.succeed
+                Effect.Task.succeed
                     { email = result.email
                     , name =
                         [ result.given_name, Maybe.withDefault "" result.family_name ]
@@ -118,7 +117,7 @@ getUserInfo authenticationSuccess =
                     }
 
             Err err ->
-                Task.fail (Http.BadBody err)
+                Effect.Task.fail (Effect.Http.BadBody err)
 
 
 jwtErrorToString err =

@@ -5,6 +5,7 @@ import Base64.Encode as B64Encode
 import Bytes exposing (Bytes)
 import Bytes.Decode
 import Crypto.HMAC
+import Effect.Time exposing (Posix)
 import JWT.ClaimSet as ClaimSet exposing (VerifyOptions)
 import JWT.JWK as JWK
 import JWT.UrlBase64 as UrlBase64
@@ -12,7 +13,6 @@ import Json.Decode as JDecode
 import Json.Decode.Pipeline exposing (optional, required)
 import Json.Encode as JEncode
 import Result exposing (andThen, map, mapError)
-import Time exposing (Posix)
 import Word.Bytes
 
 
@@ -141,7 +141,7 @@ type VerificationError
     | ClaimSet ClaimSet.VerificationError
 
 
-isValid : VerifyOptions -> String -> Posix -> JWS -> Result VerificationError Bool
+isValid : VerifyOptions -> String -> Effect.Time.Posix -> JWS -> Result VerificationError Bool
 isValid options key now token =
     checkSignature key token
         |> Result.andThen

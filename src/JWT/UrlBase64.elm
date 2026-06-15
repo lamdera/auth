@@ -39,7 +39,7 @@ of the decoders underneath.
 
 -}
 
-import Maybe as Maybe
+import Maybe
 import Regex exposing (Regex)
 
 
